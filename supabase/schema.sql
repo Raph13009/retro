@@ -5,7 +5,7 @@ create table if not exists public.rooms (
   slug text not null unique,
   name text not null,
   creator_participant_id uuid,
-  current_phase text not null default 'writing' check (current_phase in ('writing', 'voting', 'discussion', 'finished')),
+  current_phase text not null default 'reflect' check (current_phase in ('reflect', 'group', 'vote', 'discuss', 'writing', 'voting', 'discussion', 'finished')),
   hide_cards_during_writing boolean not null default false,
   cards_revealed boolean not null default false,
   vote_limit integer not null default 3 check (vote_limit >= 0 and vote_limit <= 20),
@@ -49,17 +49,47 @@ create table if not exists public.columns (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.card_groups (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references public.rooms(id) on delete cascade,
+  column_id uuid not null references public.columns(id) on delete cascade,
+  title text not null,
+  position integer not null default 0,
+  created_by text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.cards (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.rooms(id) on delete cascade,
   column_id uuid not null references public.columns(id) on delete cascade,
+  group_id uuid references public.card_groups(id) on delete set null,
   author_participant_id uuid not null references public.participants(id) on delete cascade,
   content text not null,
   vote_count integer not null default 0,
   sort_order integer not null default 0,
+  position integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+do $$
+begin
+  alter table public.cards add column if not exists group_id uuid;
+  alter table public.cards add column if not exists position integer not null default 0;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'cards_group_id_fkey'
+  ) then
+    alter table public.cards
+      add constraint cards_group_id_fkey
+      foreign key (group_id) references public.card_groups(id)
+      on delete set null;
+  end if;
+end;
+$$;
 
 create table if not exists public.votes (
   id uuid primary key default gen_random_uuid(),
@@ -104,7 +134,9 @@ create table if not exists public.action_items (
 
 create index if not exists participants_room_id_idx on public.participants(room_id);
 create index if not exists columns_room_id_sort_order_idx on public.columns(room_id, sort_order);
+create index if not exists card_groups_room_id_column_id_position_idx on public.card_groups(room_id, column_id, position);
 create index if not exists cards_room_id_column_id_sort_order_idx on public.cards(room_id, column_id, sort_order);
+create index if not exists cards_room_id_group_id_position_idx on public.cards(room_id, group_id, position);
 create index if not exists votes_room_id_participant_id_idx on public.votes(room_id, participant_id);
 create index if not exists comments_room_id_card_id_idx on public.comments(room_id, card_id);
 create index if not exists reactions_room_id_card_id_idx on public.reactions(room_id, card_id);
@@ -194,9 +226,33 @@ create trigger enforce_vote_limit
 before insert on public.votes
 for each row execute function public.enforce_vote_limit();
 
+do $$
+begin
+  alter table public.rooms drop constraint if exists rooms_current_phase_check;
+  alter table public.rooms
+    add constraint rooms_current_phase_check
+    check (current_phase in ('reflect', 'group', 'vote', 'discuss', 'writing', 'voting', 'discussion', 'finished'));
+
+  alter table public.cards add column if not exists group_id uuid;
+  alter table public.cards add column if not exists position integer not null default 0;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'cards_group_id_fkey'
+  ) then
+    alter table public.cards
+      add constraint cards_group_id_fkey
+      foreign key (group_id) references public.card_groups(id)
+      on delete set null;
+  end if;
+end;
+$$;
+
 alter table public.rooms enable row level security;
 alter table public.participants enable row level security;
 alter table public.columns enable row level security;
+alter table public.card_groups enable row level security;
 alter table public.cards enable row level security;
 alter table public.votes enable row level security;
 alter table public.comments enable row level security;
@@ -223,6 +279,12 @@ create policy "columns are link accessible" on public.columns
 
 drop policy if exists "cards are link accessible" on public.cards;
 create policy "cards are link accessible" on public.cards
+  for all to anon, authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "card groups are link accessible" on public.card_groups;
+create policy "card groups are link accessible" on public.card_groups
   for all to anon, authenticated
   using (true)
   with check (true);
@@ -255,6 +317,7 @@ grant usage on schema public to anon, authenticated;
 grant all on public.rooms to anon, authenticated;
 grant all on public.participants to anon, authenticated;
 grant all on public.columns to anon, authenticated;
+grant all on public.card_groups to anon, authenticated;
 grant all on public.cards to anon, authenticated;
 grant all on public.votes to anon, authenticated;
 grant all on public.comments to anon, authenticated;
@@ -264,6 +327,7 @@ grant all on public.action_items to anon, authenticated;
 alter table public.rooms replica identity full;
 alter table public.participants replica identity full;
 alter table public.columns replica identity full;
+alter table public.card_groups replica identity full;
 alter table public.cards replica identity full;
 alter table public.votes replica identity full;
 alter table public.comments replica identity full;
@@ -278,6 +342,7 @@ begin
     'rooms',
     'participants',
     'columns',
+    'card_groups',
     'cards',
     'votes',
     'comments',

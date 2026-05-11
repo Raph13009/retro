@@ -1,4 +1,5 @@
-export type RetroPhase = "writing" | "voting" | "discussion" | "finished";
+export type MeetingPhase = "reflect" | "group" | "vote" | "discuss";
+export type RetroPhase = MeetingPhase | "writing" | "voting" | "discussion" | "finished";
 export type TimerStatus = "idle" | "running" | "paused" | "ended";
 export type ActionStatus = "todo" | "done";
 
@@ -36,14 +37,26 @@ export type RetroColumn = {
   created_at: string;
 };
 
+export type CardGroup = {
+  id: string;
+  room_id: string;
+  column_id: string;
+  title: string;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type RetroCard = {
   id: string;
   room_id: string;
   column_id: string;
+  group_id: string | null;
   author_participant_id: string;
   content: string;
   vote_count: number;
   sort_order: number;
+  position: number;
   created_at: string;
   updated_at: string;
 };
@@ -96,6 +109,7 @@ export type RoomSnapshot = {
   room: Room;
   participants: Participant[];
   columns: RetroColumn[];
+  cardGroups: CardGroup[];
   cards: RetroCard[];
   votes: Vote[];
   comments: CardComment[];
@@ -103,5 +117,28 @@ export type RoomSnapshot = {
   actionItems: ActionItem[];
 };
 
-export const DEFAULT_COLUMNS = ["Went well", "To improve", "Questions", "Action items"];
+export const DEFAULT_COLUMNS = ["Start", "Stop", "Continue"];
+export const MEETING_PHASES: MeetingPhase[] = ["reflect", "group", "vote", "discuss"];
 export const SUGGESTED_EMOJIS = ["👍", "❤️", "👀", "🔥", "✅"];
+
+export function normalizePhase(phase: RetroPhase): MeetingPhase {
+  if (phase === "writing") {
+    return "reflect";
+  }
+  if (phase === "voting") {
+    return "vote";
+  }
+  if (phase === "discussion" || phase === "finished") {
+    return "discuss";
+  }
+  return phase;
+}
+
+export function phaseLabel(phase: MeetingPhase) {
+  return {
+    reflect: "Reflect",
+    group: "Group",
+    vote: "Vote",
+    discuss: "Discuss"
+  }[phase];
+}

@@ -3,9 +3,24 @@
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { ArrowRight, Clipboard, Loader2, Sparkles } from "lucide-react";
+import { ImageTrail } from "@/components/retro/ImageTrail";
 import { DEFAULT_COLUMNS } from "@/lib/retro/types";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 import { cn, randomRoomSlug } from "@/lib/utils";
+
+const homeTrailImages = [
+  "/gab.png",
+  "/Screenshot%202026-05-11%20at%2017.26.34.png",
+  "/Screenshot%202026-05-11%20at%2017.26.49.png",
+  "/Screenshot%202026-05-11%20at%2017.27.02.png",
+  "/Screenshot%202026-05-11%20at%2017.27.17.png",
+  "/Screenshot%202026-05-11%20at%2017.27.38.png",
+  "/Screenshot%202026-05-11%20at%2017.27.50.png",
+  "/Screenshot%202026-05-11%20at%2017.28.03.png",
+  "/Screenshot%202026-05-11%20at%2017.28.32.png",
+  "/Screenshot%202026-05-11%20at%2017.28.41.png",
+  "/Screenshot%202026-05-11%20at%2017.37.12.png"
+];
 
 export default function HomePage() {
   const [name, setName] = useState("");
@@ -87,8 +102,9 @@ export default function HomePage() {
   }
 
   return (
-    <main className="h-dvh overflow-y-auto px-6 py-10 text-slate-100">
-      <section className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-6xl items-center">
+    <main className="relative h-dvh overflow-y-auto px-6 py-10 text-slate-100">
+      <ImageTrail items={homeTrailImages} variant={5} />
+      <section className="relative mx-auto flex min-h-[calc(100dvh-5rem)] max-w-6xl items-center">
         <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-sm text-slate-300 shadow-sm backdrop-blur-xl">
@@ -105,66 +121,68 @@ export default function HomePage() {
           </div>
 
           <div className="liquid-panel rounded-[2rem] p-6">
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold tracking-tight text-white">Create a retro room</h2>
-              <p className="mt-2 text-sm text-slate-400">You will get a shareable room link instantly.</p>
-            </div>
-
-            {!hasSupabaseEnv ? (
-              <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `.env.local`,
-                then restart the dev server.
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold tracking-tight text-white">Create a retro room</h2>
+                <p className="mt-2 text-sm text-slate-400">You will get a shareable room link instantly.</p>
               </div>
-            ) : null}
 
-            <form className="space-y-4" onSubmit={createRoom}>
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-300">Retro name</span>
-                <input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Sprint 24 retrospective"
-                  className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-cyan-200/50"
-                />
-              </label>
-
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-              <button
-                type="submit"
-                disabled={isCreating || !hasSupabaseEnv}
-                className={cn(
-                  "primary-button inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium disabled:opacity-50"
-                )}
-              >
-                {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Create room
-              </button>
-            </form>
-
-            {roomLink ? (
-              <div className="liquid-surface mt-6 rounded-2xl p-4">
-                <p className="text-sm font-medium text-slate-200">Share link</p>
-                <div className="mt-2 flex items-center gap-2 rounded-xl bg-black/20 p-2 text-sm text-slate-300">
-                  <span className="min-w-0 flex-1 truncate">{roomLink}</span>
-                  <button
-                    type="button"
-                    onClick={copyLink}
-                    className="ghost-button rounded-lg p-2"
-                    aria-label="Copy room link"
-                  >
-                    <Clipboard className="h-4 w-4" />
-                  </button>
+              {!hasSupabaseEnv ? (
+                <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `.env.local`,
+                  then restart the dev server.
                 </div>
-                <Link
-                  href={creatorLink}
-                  className="primary-button mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium"
+              ) : null}
+
+              <form className="space-y-4" onSubmit={createRoom}>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-300">Retro name</span>
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Sprint 24 retrospective"
+                    className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-cyan-200/50"
+                  />
+                </label>
+
+                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+                <button
+                  type="submit"
+                  disabled={isCreating || !hasSupabaseEnv}
+                  className={cn(
+                    "primary-button inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium disabled:opacity-50"
+                  )}
                 >
-                  Enter as creator
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-            ) : null}
+                  {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Create room
+                </button>
+              </form>
+
+              {roomLink ? (
+                <div className="liquid-surface mt-6 rounded-2xl p-4">
+                  <p className="text-sm font-medium text-slate-200">Share link</p>
+                  <div className="mt-2 flex items-center gap-2 rounded-xl bg-black/20 p-2 text-sm text-slate-300">
+                    <span className="min-w-0 flex-1 truncate">{roomLink}</span>
+                    <button
+                      type="button"
+                      onClick={copyLink}
+                      className="ghost-button rounded-lg p-2"
+                      aria-label="Copy room link"
+                    >
+                      <Clipboard className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Link
+                    href={creatorLink}
+                    className="primary-button mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium"
+                  >
+                    Enter as creator
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </section>

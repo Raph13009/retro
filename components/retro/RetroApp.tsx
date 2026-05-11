@@ -2,19 +2,19 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Clipboard, Eye, Loader2, Lock, Settings, Unlock } from "lucide-react";
-import { ActionItemsPanel } from "@/components/retro/ActionItemsPanel";
+import { Loader2 } from "lucide-react";
 import { CommentDrawer } from "@/components/retro/CommentDrawer";
+import { EvilEye } from "@/components/retro/EvilEye";
 import { ExportSummaryModal } from "@/components/retro/ExportSummaryModal";
-import { ParticipantsBar } from "@/components/retro/ParticipantsBar";
-import { RetroBoard } from "@/components/retro/RetroBoard";
-import { TimerControls } from "@/components/retro/TimerControls";
-import { VotingPanel } from "@/components/retro/VotingPanel";
+import { GroupBoard } from "@/components/retro/GroupBoard";
+import { RetroLayout } from "@/components/retro/RetroLayout";
 import { avatarColorForName, getStoredParticipant, storeParticipant } from "@/lib/retro/local-participant";
 import { getRemainingSeconds, timerEnded } from "@/lib/retro/timer";
 import type {
   ActionItem,
+  CardGroup,
   CardComment,
+  MeetingPhase,
   Participant,
   PresenceParticipant,
   Reaction,
@@ -23,12 +23,16 @@ import type {
   Room,
   Vote
 } from "@/lib/retro/types";
+import { normalizePhase } from "@/lib/retro/types";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
 
 type RetroAppProps = {
   roomSlug: string;
 };
+
+function nextPosition() {
+  return Date.now() % 2_000_000_000;
+}
 
 export function RetroApp({ roomSlug }: RetroAppProps) {
   const [room, setRoom] = useState<Room | null>(null);
@@ -36,6 +40,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [onlineParticipants, setOnlineParticipants] = useState<PresenceParticipant[]>([]);
   const [columns, setColumns] = useState<RetroColumn[]>([]);
+  const [cardGroups, setCardGroups] = useState<CardGroup[]>([]);
   const [cards, setCards] = useState<RetroCard[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
   const [comments, setComments] = useState<CardComment[]>([]);
@@ -60,6 +65,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }, []);
 
   const isCreator = Boolean(room && participant && room.creator_participant_id === participant.id);
+  const currentPhase = room ? normalizePhase(room.current_phase) : "reflect";
 
   const showMutationError = useCallback((message: string) => {
     setOperationError(message);
@@ -79,12 +85,23 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
-    const [roomResult, participantsResult, columnsResult, cardsResult, votesResult, commentsResult, reactionsResult, actionItemsResult] =
+    const [
+      roomResult,
+      participantsResult,
+      columnsResult,
+      cardGroupsResult,
+      cardsResult,
+      votesResult,
+      commentsResult,
+      reactionsResult,
+      actionItemsResult
+    ] =
       await Promise.all([
         supabase.from("rooms").select("*").eq("id", roomId).single(),
         supabase.from("participants").select("*").eq("room_id", roomId).order("created_at"),
         supabase.from("columns").select("*").eq("room_id", roomId).order("sort_order"),
-        supabase.from("cards").select("*").eq("room_id", roomId).order("sort_order"),
+        supabase.from("card_groups").select("*").eq("room_id", roomId).order("position"),
+        supabase.from("cards").select("*").eq("room_id", roomId).order("position"),
         supabase.from("votes").select("*").eq("room_id", roomId).order("created_at"),
         supabase.from("comments").select("*").eq("room_id", roomId).order("created_at"),
         supabase.from("reactions").select("*").eq("room_id", roomId).order("created_at"),
@@ -97,6 +114,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
     setParticipants((participantsResult.data ?? []) as Participant[]);
     setColumns((columnsResult.data ?? []) as RetroColumn[]);
+    setCardGroups((cardGroupsResult.data ?? []) as CardGroup[]);
     setCards((cardsResult.data ?? []) as RetroCard[]);
     setVotes((votesResult.data ?? []) as Vote[]);
     setComments((commentsResult.data ?? []) as CardComment[]);
@@ -205,6 +223,9 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       .on("postgres_changes", { event: "*", schema: "public", table: "columns", filter: `room_id=eq.${room.id}` }, () => {
         void loadSnapshot(room.id);
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "card_groups", filter: `room_id=eq.${room.id}` }, () => {
+        void loadSnapshot(room.id);
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "cards", filter: `room_id=eq.${room.id}` }, () => {
         void loadSnapshot(room.id);
       })
@@ -293,7 +314,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
 
     const privateWriting =
-      room.current_phase === "writing" &&
+      normalizePhase(room.current_phase) === "reflect" &&
       room.hide_cards_during_writing &&
       !room.cards_revealed &&
       room.timer_status !== "ended";
@@ -376,6 +397,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const client = supabase;
     const roomId = room.id;
     const participantId = participant.id;
+    const position = nextPosition();
     return performMutation(async () => {
       const { data, error: insertError } = await client
         .from("cards")
@@ -384,7 +406,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           column_id: columnId,
           author_participant_id: participantId,
           content,
-          sort_order: Date.now()
+          sort_order: position,
+          position
         })
         .select("*")
         .single();
@@ -443,7 +466,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
 
     const client = supabase;
-    const nextSortOrder = Date.now();
+    const nextSortOrder = nextPosition();
     await performMutation(async () => {
       const { error: updateError } = await client
         .from("cards")
@@ -458,6 +481,153 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         )
       );
     }, "Card move failed");
+  }
+
+  async function createGroup(columnId: string, card?: RetroCard) {
+    if (!supabase || !room || !participant) {
+      return false;
+    }
+
+    const client = supabase;
+    const roomId = room.id;
+    const position = nextPosition();
+    return performMutation(async () => {
+      const { data, error: insertError } = await client
+        .from("card_groups")
+        .insert({
+          room_id: roomId,
+          column_id: columnId,
+          title: card ? card.content.slice(0, 48) || "New topic" : "New topic",
+          position,
+          created_by: participant.name
+        })
+        .select("*")
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      if (card && data) {
+        const { error: cardError } = await client
+          .from("cards")
+          .update({
+            column_id: columnId,
+            group_id: data.id,
+            position
+          })
+          .eq("id", card.id);
+
+        if (cardError) {
+          throw cardError;
+        }
+      }
+    }, "Group creation failed");
+  }
+
+  async function renameGroup(group: CardGroup) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    const client = supabase;
+    const title = window.prompt("Rename group", group.title);
+    if (!title?.trim()) {
+      return;
+    }
+
+    await performMutation(async () => {
+      const { error: updateError } = await client.from("card_groups").update({ title: title.trim() }).eq("id", group.id);
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Group rename failed");
+  }
+
+  async function deleteGroup(group: CardGroup) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    const client = supabase;
+    await performMutation(async () => {
+      const { error: updateCardsError } = await client.from("cards").update({ group_id: null }).eq("group_id", group.id);
+      if (updateCardsError) {
+        throw updateCardsError;
+      }
+
+      const { error: deleteError } = await client.from("card_groups").delete().eq("id", group.id);
+      if (deleteError) {
+        throw deleteError;
+      }
+    }, "Group deletion failed");
+  }
+
+  async function moveCardToGroup(card: RetroCard, group: CardGroup) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    const client = supabase;
+    const position = nextPosition();
+    await performMutation(async () => {
+      const { error: updateError } = await client
+        .from("cards")
+        .update({
+          column_id: group.column_id,
+          group_id: group.id,
+          position
+        })
+        .eq("id", card.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Card grouping failed");
+  }
+
+  async function moveCardToColumn(card: RetroCard, columnId: string) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    const client = supabase;
+    const position = nextPosition();
+    await performMutation(async () => {
+      const { error: updateError } = await client
+        .from("cards")
+        .update({
+          column_id: columnId,
+          group_id: null,
+          position
+        })
+        .eq("id", card.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Card move failed");
+  }
+
+  async function ungroupCard(card: RetroCard) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    const client = supabase;
+    await performMutation(async () => {
+      const { error: updateError } = await client
+        .from("cards")
+        .update({
+          group_id: null,
+          position: nextPosition()
+        })
+        .eq("id", card.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Card ungroup failed");
   }
 
   async function addColumn() {
@@ -550,7 +720,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function voteCard(card: RetroCard) {
-    if (!supabase || !room || !participant || room.current_phase !== "voting") {
+    if (!supabase || !room || !participant || normalizePhase(room.current_phase) !== "vote") {
       return;
     }
 
@@ -749,6 +919,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     return (
       <main className="grid h-dvh place-items-center p-6 text-slate-100">
         <form onSubmit={joinRoom} className="liquid-panel w-full max-w-md rounded-[2rem] p-6">
+          <div className="mx-auto mb-5 h-32 w-full max-w-xs overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/70 shadow-2xl shadow-orange-500/10">
+            <EvilEye
+              eyeColor="#FF6F37"
+              intensity={1.9}
+              pupilSize={1.35}
+              irisWidth={0.3}
+              glowIntensity={0.35}
+              scale={0.5}
+              noiseScale={1}
+              pupilFollow={2}
+              flameSpeed={1.7}
+              backgroundColor="#000000"
+            />
+          </div>
           <p className="text-sm font-medium text-cyan-200">{room.name}</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Join the retro</h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
@@ -777,14 +961,18 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     );
   }
 
-  const privateWriting =
-    room.current_phase === "writing" &&
-    room.hide_cards_during_writing &&
-    !room.cards_revealed &&
-    room.timer_status !== "ended";
-
   return (
-    <main className="h-dvh overflow-hidden p-4 text-slate-100">
+    <RetroLayout
+      room={room}
+      participant={participant}
+      participants={participants}
+      onlineParticipants={onlineParticipants}
+      phase={currentPhase}
+      isCreator={isCreator}
+      remainingSeconds={remainingSeconds}
+      onPhaseChange={(phase: MeetingPhase) => updateRoom({ current_phase: phase, cards_revealed: phase !== "reflect" })}
+      onEndMeeting={() => setShowSummary(true)}
+    >
       {room.timer_status === "ended" ? (
         <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
           Time is up. Cards are revealed.
@@ -795,153 +983,23 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           {operationError}
         </div>
       ) : null}
-
-      <div className="mx-auto grid h-full max-w-[98rem] grid-rows-[auto_auto_minmax(0,1fr)] gap-4">
-        <header className="liquid-panel flex flex-col gap-4 rounded-[2rem] p-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-white">{room.name}</h1>
-              {isCreator ? (
-                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-950">Creator</span>
-              ) : null}
-              {privateWriting ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-300/15 px-2.5 py-1 text-xs font-medium text-amber-100">
-                  <Lock className="h-3 w-3" />
-                  Private writing
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-300/15 px-2.5 py-1 text-xs font-medium text-emerald-100">
-                  <Unlock className="h-3 w-3" />
-                  Cards visible
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-sm text-slate-400">Phase: {room.current_phase}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={copyRoomLink}
-              className="ghost-button inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium"
-            >
-              <Clipboard className="h-4 w-4" />
-              Copy link
-            </button>
-            {isCreator ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => updateRoom({ hide_cards_during_writing: !room.hide_cards_during_writing })}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium",
-                    room.hide_cards_during_writing
-                      ? "border border-amber-200/20 bg-amber-300/15 text-amber-100"
-                      : "ghost-button"
-                  )}
-                >
-                  <Settings className="h-4 w-4" />
-                  Hide cards
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateRoom({ cards_revealed: true })}
-                  className="ghost-button inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium"
-                >
-                  <Eye className="h-4 w-4" />
-                  Reveal cards
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSummary(true)}
-                  className="primary-button rounded-2xl px-4 py-2 text-sm font-medium"
-                >
-                  Finish retro
-                </button>
-              </>
-            ) : null}
-          </div>
-        </header>
-
-        <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_18rem_18rem]">
-          <ParticipantsBar participants={participants} onlineParticipants={onlineParticipants} />
-          <TimerControls
-            room={room}
-            isCreator={isCreator}
-            remainingSeconds={remainingSeconds}
-            onStart={() =>
-              updateRoom({
-                timer_status: "running",
-                timer_started_at: new Date().toISOString(),
-                timer_paused_remaining_seconds: getRemainingSeconds(room),
-                cards_revealed: false
-              })
-            }
-            onPause={() =>
-              updateRoom({
-                timer_status: "paused",
-                timer_started_at: null,
-                timer_paused_remaining_seconds: getRemainingSeconds(room)
-              })
-            }
-            onReset={() =>
-              updateRoom({
-                timer_status: "idle",
-                timer_started_at: null,
-                timer_paused_remaining_seconds: room.timer_duration_seconds,
-                cards_revealed: false
-              })
-            }
-            onDurationChange={(seconds) =>
-              updateRoom({
-                timer_duration_seconds: seconds,
-                timer_paused_remaining_seconds: seconds
-              })
-            }
-          />
-          <VotingPanel
-            room={room}
-            votes={votes}
-            participantId={participant.id}
-            isCreator={isCreator}
-            onStartVoting={() => updateRoom({ current_phase: "voting", cards_revealed: true })}
-            onFinishVoting={() => updateRoom({ current_phase: "discussion", cards_revealed: true })}
-            onVoteLimitChange={(limit) => updateRoom({ vote_limit: limit })}
-          />
-        </div>
-
-        <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-          <RetroBoard
-            room={room}
-            participant={participant}
-            participants={participants}
-            columns={columns}
-            cards={visibleCards}
-            comments={comments}
-            reactions={reactions}
-            votes={votes}
-            actionItems={actionItems}
-            isCreator={isCreator}
-            onMoveCard={moveCard}
-            onAddCard={addCard}
-            onOpenComments={setSelectedCard}
-            onEditCard={editCard}
-            onDeleteCard={deleteCard}
-            onVoteCard={voteCard}
-            onReactToCard={reactToCard}
-            onConvertToActionItem={convertToActionItem}
-            onAddColumn={addColumn}
-            onRenameColumn={renameColumn}
-            onDeleteColumn={deleteColumn}
-            onMoveColumn={moveColumn}
-          />
-          <ActionItemsPanel
-            actionItems={actionItems}
-            participants={participants}
-            onToggleStatus={toggleActionStatus}
-            onAssign={assignActionItem}
-          />
-        </div>
-      </div>
+      <GroupBoard
+        phase={currentPhase}
+        columns={columns}
+        groups={cardGroups}
+        cards={visibleCards}
+        participants={participants}
+        votes={votes}
+        currentParticipantId={participant.id}
+        onAddCard={addCard}
+        onCreateGroup={createGroup}
+        onRenameGroup={renameGroup}
+        onDeleteGroup={deleteGroup}
+        onMoveCardToGroup={moveCardToGroup}
+        onMoveCardToColumn={moveCardToColumn}
+        onUngroupCard={ungroupCard}
+        onVoteCard={voteCard}
+      />
 
       <CommentDrawer
         card={selectedCard}
@@ -958,8 +1016,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         cards={cards}
         actionItems={actionItems}
         onClose={() => setShowSummary(false)}
-        onFinish={() => updateRoom({ current_phase: "finished" })}
+        onFinish={() => updateRoom({ current_phase: "discuss" })}
       />
-    </main>
+    </RetroLayout>
   );
 }

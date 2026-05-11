@@ -18,15 +18,16 @@ html {
 body {
   height: 100%;
   margin: 0;
-  background:
-    radial-gradient(circle at 18% 8%, rgba(77, 124, 254, 0.26), transparent 30rem),
-    radial-gradient(circle at 84% 12%, rgba(45, 212, 191, 0.16), transparent 28rem),
-    radial-gradient(circle at 50% 100%, rgba(168, 85, 247, 0.12), transparent 32rem),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+body > main {
+  position: relative;
+  z-index: 1;
 }
 
 button,
@@ -47,6 +48,36 @@ button:disabled {
 
 ::selection {
   background: rgba(125, 211, 252, 0.25);
+}
+
+.app-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-background::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.16), transparent 24rem),
+    linear-gradient(180deg, rgba(8, 11, 18, 0.16), rgba(8, 11, 18, 0.7));
+}
+
+.grainient-container {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.grainient-container canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 .liquid-panel {
@@ -93,6 +124,17 @@ button:disabled {
 
 .dark-field::placeholder {
   color: rgba(203, 213, 225, 0.48);
+}
+
+.evil-eye-container {
+  height: 100%;
+  width: 100%;
+}
+
+.evil-eye-container canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 .scroll-stable {
