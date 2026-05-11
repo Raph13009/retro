@@ -27,7 +27,7 @@ type RetroColumnProps = {
   isCreator: boolean;
   canMoveLeft: boolean;
   canMoveRight: boolean;
-  onAddCard: (columnId: string, content: string) => void;
+  onAddCard: (columnId: string, content: string) => Promise<boolean>;
   onOpenComments: (card: RetroCardType) => void;
   onEditCard: (card: RetroCardType) => void;
   onDeleteCard: (card: RetroCardType) => void;
@@ -64,32 +64,38 @@ export function RetroColumn({
   onMoveColumn
 }: RetroColumnProps) {
   const [content, setContent] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
-  function submitCard(event: FormEvent<HTMLFormElement>) {
+  async function submitCard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = content.trim();
     if (!trimmed) {
       return;
     }
 
-    onAddCard(column.id, trimmed);
-    setContent("");
+    setIsSubmitting(true);
+    const saved = await onAddCard(column.id, trimmed);
+    setIsSubmitting(false);
+
+    if (saved) {
+      setContent("");
+    }
   }
 
   return (
     <section
       ref={setNodeRef}
       className={cn(
-        "flex min-h-[34rem] w-[22rem] shrink-0 flex-col rounded-[1.5rem] border border-zinc-200 bg-zinc-50/85 p-3 shadow-sm transition",
-        isOver && "border-indigo-300 bg-indigo-50/60"
+        "liquid-panel flex h-full min-h-[34rem] w-[21rem] shrink-0 flex-col rounded-[1.5rem] p-3",
+        isOver && "border-cyan-200/40 bg-cyan-300/10"
       )}
     >
       <div className="flex items-center justify-between gap-2 px-1 py-2">
         <button
           type="button"
           onClick={() => (isCreator ? onRenameColumn(column) : undefined)}
-          className={cn("text-left text-base font-semibold text-zinc-950", isCreator && "hover:text-indigo-600")}
+          className={cn("text-left text-base font-semibold text-white", isCreator && "hover:text-cyan-100")}
         >
           {column.title}
         </button>
@@ -100,7 +106,7 @@ export function RetroColumn({
                 type="button"
                 onClick={() => onMoveColumn(column, -1)}
                 disabled={!canMoveLeft}
-                className="rounded-lg p-1.5 text-zinc-400 hover:bg-white hover:text-zinc-700 disabled:opacity-30"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 aria-label="Move column left"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -109,7 +115,7 @@ export function RetroColumn({
                 type="button"
                 onClick={() => onMoveColumn(column, 1)}
                 disabled={!canMoveRight}
-                className="rounded-lg p-1.5 text-zinc-400 hover:bg-white hover:text-zinc-700 disabled:opacity-30"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 aria-label="Move column right"
               >
                 <ArrowRight className="h-4 w-4" />
@@ -117,37 +123,38 @@ export function RetroColumn({
               <button
                 type="button"
                 onClick={() => onDeleteColumn(column)}
-                className="rounded-lg p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-red-400/10 hover:text-red-200"
                 aria-label="Delete column"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             </>
           ) : null}
-          <span className="rounded-full bg-white px-2 py-1 text-xs font-medium text-zinc-500">{cards.length}</span>
+          <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-medium text-slate-300">{cards.length}</span>
         </div>
       </div>
 
-      <form onSubmit={submitCard} className="mb-3 rounded-2xl border border-zinc-200 bg-white p-2">
+      <form onSubmit={submitCard} className="liquid-surface mb-3 rounded-2xl p-2">
         <textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}
           placeholder="Add a thought..."
           rows={3}
-          className="w-full resize-none rounded-xl border-0 bg-transparent px-2 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+          className="w-full resize-none rounded-xl border-0 bg-transparent px-2 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
         />
         <button
           type="submit"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-950 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+          disabled={isSubmitting}
+          className="primary-button inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium disabled:opacity-60"
         >
           <Plus className="h-4 w-4" />
-          Add card
+          {isSubmitting ? "Saving..." : "Add card"}
         </button>
       </form>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
+      <div className="scroll-stable flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
         {cards.length === 0 ? (
-          <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-zinc-200 bg-white/60 p-6 text-center text-sm text-zinc-400">
+          <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-6 text-center text-sm text-slate-500">
             No cards yet
           </div>
         ) : (

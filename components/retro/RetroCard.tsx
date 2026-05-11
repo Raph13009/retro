@@ -55,15 +55,15 @@ export function RetroCard({
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
       className={cn(
-        "rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition",
-        isDragging && "z-20 opacity-60 shadow-xl",
-        card.vote_count > 0 && "border-indigo-200"
+        "liquid-card rounded-2xl p-4",
+        isDragging && "z-20 opacity-70",
+        card.vote_count > 0 && "ring-1 ring-cyan-300/45"
       )}
     >
       <div className="flex items-start gap-2">
         <button
           type="button"
-          className="mt-0.5 rounded-lg p-1 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-500"
+          className="mt-0.5 rounded-lg p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500"
           aria-label="Drag card"
           {...listeners}
           {...attributes}
@@ -71,8 +71,8 @@ export function RetroCard({
           <GripVertical className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-900">{card.content}</p>
-          <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-950">{card.content}</p>
+          <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
             <span
               className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-semibold text-white"
               style={{ backgroundColor: author?.avatar_color ?? "#71717a" }}
@@ -91,7 +91,7 @@ export function RetroCard({
           disabled={!canVote}
           className={cn(
             "rounded-full px-2.5 py-1 text-xs font-medium transition",
-            participantVote ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+            participantVote ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
             !canVote && "opacity-50"
           )}
         >
@@ -100,7 +100,7 @@ export function RetroCard({
         <button
           type="button"
           onClick={() => onOpenComments(card)}
-          className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-200"
+          className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200"
         >
           <MessageCircle className="h-3.5 w-3.5" />
           {comments.filter((comment) => comment.card_id === card.id).length}
@@ -110,7 +110,7 @@ export function RetroCard({
             <button
               type="button"
               onClick={() => onEdit(card)}
-              className="rounded-full bg-zinc-100 p-1.5 text-zinc-500 hover:bg-zinc-200"
+              className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200"
               aria-label="Edit card"
             >
               <Pencil className="h-3.5 w-3.5" />
@@ -118,7 +118,7 @@ export function RetroCard({
             <button
               type="button"
               onClick={() => onDelete(card)}
-              className="rounded-full bg-zinc-100 p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600"
+              className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
               aria-label="Delete card"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -129,7 +129,7 @@ export function RetroCard({
           type="button"
           onClick={() => onConvertToActionItem(card)}
           disabled={Boolean(actionItem)}
-          className="rounded-full bg-zinc-100 p-1.5 text-zinc-500 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50"
+          className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50"
           aria-label="Convert to action item"
         >
           <CheckSquare className="h-3.5 w-3.5" />
@@ -145,8 +145,8 @@ export function RetroCard({
             className={cn(
               "rounded-full border px-2 py-1 text-xs transition",
               reaction.active
-                ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50"
+                ? "border-slate-300 bg-slate-950 text-white"
+                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
             )}
           >
             {reaction.emoji} {reaction.count > 0 ? reaction.count : ""}

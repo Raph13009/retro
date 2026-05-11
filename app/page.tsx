@@ -87,27 +87,27 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-10">
-      <section className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl items-center">
+    <main className="h-dvh overflow-y-auto px-6 py-10 text-slate-100">
+      <section className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-6xl items-center">
         <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/70 px-3 py-1 text-sm text-zinc-600 shadow-sm backdrop-blur">
-              <Sparkles className="h-4 w-4 text-indigo-500" />
-              Realtime agile retros without the bloat
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-sm text-slate-300 shadow-sm backdrop-blur-xl">
+              <Sparkles className="h-4 w-4 text-cyan-200" />
+              Realtime retros, calm by design
             </div>
-            <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.04em] text-zinc-950 md:text-7xl">
-              A focused retro board for teams that want momentum.
+            <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-white md:text-7xl">
+              A polished retro room that stays steady.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-600">
-              Create a room, invite your team, write privately if needed, vote on the important topics,
-              and leave with clear action items.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
+              Fixed layout, realtime collaboration, private writing, voting and action items without the chaotic
+              whiteboard feel.
             </p>
           </div>
 
-          <div className="rounded-[2rem] border border-zinc-200 bg-white/85 p-6 shadow-2xl shadow-zinc-200/70 backdrop-blur">
+          <div className="liquid-panel rounded-[2rem] p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">Create a retro room</h2>
-              <p className="mt-2 text-sm text-zinc-500">You will get a shareable room link instantly.</p>
+              <h2 className="text-2xl font-semibold tracking-tight text-white">Create a retro room</h2>
+              <p className="mt-2 text-sm text-slate-400">You will get a shareable room link instantly.</p>
             </div>
 
             {!hasSupabaseEnv ? (
@@ -119,12 +119,12 @@ export default function HomePage() {
 
             <form className="space-y-4" onSubmit={createRoom}>
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-zinc-700">Retro name</span>
+                <span className="mb-2 block text-sm font-medium text-slate-300">Retro name</span>
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Sprint 24 retrospective"
-                  className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-zinc-950 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+                  className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-cyan-200/50"
                 />
               </label>
 
@@ -134,8 +134,7 @@ export default function HomePage() {
                 type="submit"
                 disabled={isCreating || !hasSupabaseEnv}
                 className={cn(
-                  "inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-950 px-5 py-3 font-medium text-white shadow-lg shadow-zinc-300 transition hover:-translate-y-0.5 hover:bg-zinc-800 disabled:opacity-50",
-                  isCreating && "translate-y-0"
+                  "primary-button inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium disabled:opacity-50"
                 )}
               >
                 {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -144,14 +143,14 @@ export default function HomePage() {
             </form>
 
             {roomLink ? (
-              <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                <p className="text-sm font-medium text-zinc-700">Share link</p>
-                <div className="mt-2 flex items-center gap-2 rounded-xl bg-white p-2 text-sm text-zinc-600">
+              <div className="liquid-surface mt-6 rounded-2xl p-4">
+                <p className="text-sm font-medium text-slate-200">Share link</p>
+                <div className="mt-2 flex items-center gap-2 rounded-xl bg-black/20 p-2 text-sm text-slate-300">
                   <span className="min-w-0 flex-1 truncate">{roomLink}</span>
                   <button
                     type="button"
                     onClick={copyLink}
-                    className="rounded-lg border border-zinc-200 p-2 text-zinc-600 hover:bg-zinc-50"
+                    className="ghost-button rounded-lg p-2"
                     aria-label="Copy room link"
                   >
                     <Clipboard className="h-4 w-4" />
@@ -159,7 +158,7 @@ export default function HomePage() {
                 </div>
                 <Link
                   href={creatorLink}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 font-medium text-white transition hover:bg-indigo-500"
+                  className="primary-button mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium"
                 >
                   Enter as creator
                   <ArrowRight className="h-4 w-4" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Clipboard, Eye, Loader2, Lock, Settings, Unlock } from "lucide-react";
 import { ActionItemsPanel } from "@/components/retro/ActionItemsPanel";
@@ -46,8 +46,10 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState("");
+  const [operationError, setOperationError] = useState("");
   const [remainingSeconds, setRemainingSeconds] = useState(300);
   const [showSummary, setShowSummary] = useState(false);
+  const operationErrorTimeoutRef = useRef<number | null>(null);
 
   const creatorRequested = useMemo(() => {
     if (typeof window === "undefined") {
@@ -58,6 +60,19 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }, []);
 
   const isCreator = Boolean(room && participant && room.creator_participant_id === participant.id);
+
+  const showMutationError = useCallback((message: string) => {
+    setOperationError(message);
+
+    if (operationErrorTimeoutRef.current) {
+      window.clearTimeout(operationErrorTimeoutRef.current);
+    }
+
+    operationErrorTimeoutRef.current = window.setTimeout(() => {
+      setOperationError("");
+      operationErrorTimeoutRef.current = null;
+    }, 7000);
+  }, []);
 
   const loadSnapshot = useCallback(async (roomId: string) => {
     if (!supabase) {
@@ -88,6 +103,27 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     setReactions((reactionsResult.data ?? []) as Reaction[]);
     setActionItems((actionItemsResult.data ?? []) as ActionItem[]);
   }, []);
+
+  const performMutation = useCallback(
+    async (action: () => Promise<void>, fallbackMessage: string) => {
+      const roomId = room?.id;
+      if (!roomId) {
+        return false;
+      }
+
+      try {
+        setOperationError("");
+        await action();
+        await loadSnapshot(roomId);
+        return true;
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : fallbackMessage;
+        showMutationError(`${fallbackMessage}: ${message}`);
+        return false;
+      }
+    },
+    [loadSnapshot, room?.id, showMutationError]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +179,14 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       cancelled = true;
     };
   }, [loadSnapshot, roomSlug]);
+
+  useEffect(() => {
+    return () => {
+      if (operationErrorTimeoutRef.current) {
+        window.clearTimeout(operationErrorTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!supabase || !room?.id) {
@@ -311,24 +355,48 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
   async function updateRoom(patch: Partial<Room>) {
     if (!supabase || !room) {
-      return;
+      return false;
     }
 
-    await supabase.from("rooms").update(patch).eq("id", room.id);
+    const client = supabase;
+    const roomId = room.id;
+    return performMutation(async () => {
+      const { error: updateError } = await client.from("rooms").update(patch).eq("id", roomId);
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Room update failed");
   }
 
   async function addCard(columnId: string, content: string) {
     if (!supabase || !room || !participant) {
-      return;
+      return false;
     }
 
-    await supabase.from("cards").insert({
-      room_id: room.id,
-      column_id: columnId,
-      author_participant_id: participant.id,
-      content,
-      sort_order: Date.now()
-    });
+    const client = supabase;
+    const roomId = room.id;
+    const participantId = participant.id;
+    return performMutation(async () => {
+      const { data, error: insertError } = await client
+        .from("cards")
+        .insert({
+          room_id: roomId,
+          column_id: columnId,
+          author_participant_id: participantId,
+          content,
+          sort_order: Date.now()
+        })
+        .select("*")
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      if (data) {
+        setCards((currentCards) => [...currentCards.filter((card) => card.id !== data.id), data as RetroCard]);
+      }
+    }, "Card creation failed");
   }
 
   async function editCard(card: RetroCard) {
@@ -336,12 +404,18 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
     const nextContent = window.prompt("Edit card", card.content);
     if (!nextContent?.trim()) {
       return;
     }
 
-    await supabase.from("cards").update({ content: nextContent.trim() }).eq("id", card.id);
+    await performMutation(async () => {
+      const { error: updateError } = await client.from("cards").update({ content: nextContent.trim() }).eq("id", card.id);
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Card update failed");
   }
 
   async function deleteCard(card: RetroCard) {
@@ -349,19 +423,41 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
     if (!window.confirm("Delete this card?")) {
       return;
     }
 
-    await supabase.from("cards").delete().eq("id", card.id);
+    await performMutation(async () => {
+      const { error: deleteError } = await client.from("cards").delete().eq("id", card.id);
+      if (deleteError) {
+        throw deleteError;
+      }
+      setCards((currentCards) => currentCards.filter((currentCard) => currentCard.id !== card.id));
+    }, "Card deletion failed");
   }
 
   async function moveCard(card: RetroCard, columnId: string) {
-    if (!supabase) {
+    if (!supabase || !room) {
       return;
     }
 
-    await supabase.from("cards").update({ column_id: columnId, sort_order: Date.now() }).eq("id", card.id);
+    const client = supabase;
+    const nextSortOrder = Date.now();
+    await performMutation(async () => {
+      const { error: updateError } = await client
+        .from("cards")
+        .update({ column_id: columnId, sort_order: nextSortOrder })
+        .eq("id", card.id);
+      if (updateError) {
+        throw updateError;
+      }
+      setCards((currentCards) =>
+        currentCards.map((currentCard) =>
+          currentCard.id === card.id ? { ...currentCard, column_id: columnId, sort_order: nextSortOrder } : currentCard
+        )
+      );
+    }, "Card move failed");
   }
 
   async function addColumn() {
@@ -369,16 +465,23 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
+    const roomId = room.id;
     const title = window.prompt("Column name");
     if (!title?.trim()) {
       return;
     }
 
-    await supabase.from("columns").insert({
-      room_id: room.id,
-      title: title.trim(),
-      sort_order: columns.length
-    });
+    await performMutation(async () => {
+      const { error: insertError } = await client.from("columns").insert({
+        room_id: roomId,
+        title: title.trim(),
+        sort_order: columns.length
+      });
+      if (insertError) {
+        throw insertError;
+      }
+    }, "Column creation failed");
   }
 
   async function renameColumn(column: RetroColumn) {
@@ -386,12 +489,18 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
     const title = window.prompt("Rename column", column.title);
     if (!title?.trim()) {
       return;
     }
 
-    await supabase.from("columns").update({ title: title.trim() }).eq("id", column.id);
+    await performMutation(async () => {
+      const { error: updateError } = await client.from("columns").update({ title: title.trim() }).eq("id", column.id);
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Column rename failed");
   }
 
   async function deleteColumn(column: RetroColumn) {
@@ -399,11 +508,17 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
     if (!window.confirm("Delete this column and its cards?")) {
       return;
     }
 
-    await supabase.from("columns").delete().eq("id", column.id);
+    await performMutation(async () => {
+      const { error: deleteError } = await client.from("columns").delete().eq("id", column.id);
+      if (deleteError) {
+        throw deleteError;
+      }
+    }, "Column deletion failed");
   }
 
   async function moveColumn(column: RetroColumn, direction: -1 | 1) {
@@ -411,6 +526,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
     const orderedColumns = [...columns].sort((first, second) => first.sort_order - second.sort_order);
     const currentIndex = orderedColumns.findIndex((candidate) => candidate.id === column.id);
     const target = orderedColumns[currentIndex + direction];
@@ -418,10 +534,19 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
-    await Promise.all([
-      supabase.from("columns").update({ sort_order: target.sort_order }).eq("id", column.id),
-      supabase.from("columns").update({ sort_order: column.sort_order }).eq("id", target.id)
-    ]);
+    await performMutation(async () => {
+      const [currentResult, targetResult] = await Promise.all([
+        client.from("columns").update({ sort_order: target.sort_order }).eq("id", column.id),
+        client.from("columns").update({ sort_order: column.sort_order }).eq("id", target.id)
+      ]);
+
+      if (currentResult.error) {
+        throw currentResult.error;
+      }
+      if (targetResult.error) {
+        throw targetResult.error;
+      }
+    }, "Column reorder failed");
   }
 
   async function voteCard(card: RetroCard) {
@@ -429,9 +554,17 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
+    const roomId = room.id;
+    const participantId = participant.id;
     const existingVote = votes.find((vote) => vote.card_id === card.id && vote.participant_id === participant.id);
     if (existingVote) {
-      await supabase.from("votes").delete().eq("id", existingVote.id);
+      await performMutation(async () => {
+        const { error: deleteError } = await client.from("votes").delete().eq("id", existingVote.id);
+        if (deleteError) {
+          throw deleteError;
+        }
+      }, "Vote removal failed");
       return;
     }
 
@@ -441,11 +574,16 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
-    await supabase.from("votes").insert({
-      room_id: room.id,
-      card_id: card.id,
-      participant_id: participant.id
-    });
+    await performMutation(async () => {
+      const { error: insertError } = await client.from("votes").insert({
+        room_id: roomId,
+        card_id: card.id,
+        participant_id: participantId
+      });
+      if (insertError) {
+        throw insertError;
+      }
+    }, "Vote failed");
   }
 
   async function reactToCard(card: RetroCard, emoji: string) {
@@ -453,34 +591,55 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
+    const roomId = room.id;
+    const participantId = participant.id;
     const existingReaction = reactions.find(
-      (reaction) => reaction.card_id === card.id && reaction.participant_id === participant.id && reaction.emoji === emoji
+      (reaction) => reaction.card_id === card.id && reaction.participant_id === participantId && reaction.emoji === emoji
     );
 
     if (existingReaction) {
-      await supabase.from("reactions").delete().eq("id", existingReaction.id);
+      await performMutation(async () => {
+        const { error: deleteError } = await client.from("reactions").delete().eq("id", existingReaction.id);
+        if (deleteError) {
+          throw deleteError;
+        }
+      }, "Reaction removal failed");
       return;
     }
 
-    await supabase.from("reactions").insert({
-      room_id: room.id,
-      card_id: card.id,
-      participant_id: participant.id,
-      emoji
-    });
+    await performMutation(async () => {
+      const { error: insertError } = await client.from("reactions").insert({
+        room_id: roomId,
+        card_id: card.id,
+        participant_id: participantId,
+        emoji
+      });
+      if (insertError) {
+        throw insertError;
+      }
+    }, "Reaction failed");
   }
 
   async function addComment(card: RetroCard, content: string) {
     if (!supabase || !room || !participant) {
-      return;
+      return false;
     }
 
-    await supabase.from("comments").insert({
-      room_id: room.id,
-      card_id: card.id,
-      participant_id: participant.id,
-      content
-    });
+    const client = supabase;
+    const roomId = room.id;
+    const participantId = participant.id;
+    return performMutation(async () => {
+      const { error: insertError } = await client.from("comments").insert({
+        room_id: roomId,
+        card_id: card.id,
+        participant_id: participantId,
+        content
+      });
+      if (insertError) {
+        throw insertError;
+      }
+    }, "Comment creation failed");
   }
 
   async function convertToActionItem(card: RetroCard) {
@@ -488,31 +647,56 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    const client = supabase;
+    const roomId = room.id;
     if (actionItems.some((item) => item.card_id === card.id)) {
       return;
     }
 
-    await supabase.from("action_items").insert({
-      room_id: room.id,
-      card_id: card.id,
-      title: card.content
-    });
+    await performMutation(async () => {
+      const { error: insertError } = await client.from("action_items").insert({
+        room_id: roomId,
+        card_id: card.id,
+        title: card.content
+      });
+      if (insertError) {
+        throw insertError;
+      }
+    }, "Action item creation failed");
   }
 
   async function toggleActionStatus(item: ActionItem) {
-    if (!supabase) {
+    if (!supabase || !room) {
       return;
     }
 
-    await supabase.from("action_items").update({ status: item.status === "done" ? "todo" : "done" }).eq("id", item.id);
+    const client = supabase;
+    await performMutation(async () => {
+      const { error: updateError } = await client
+        .from("action_items")
+        .update({ status: item.status === "done" ? "todo" : "done" })
+        .eq("id", item.id);
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Action item update failed");
   }
 
   async function assignActionItem(item: ActionItem, participantId: string | null) {
-    if (!supabase) {
+    if (!supabase || !room) {
       return;
     }
 
-    await supabase.from("action_items").update({ assignee_participant_id: participantId }).eq("id", item.id);
+    const client = supabase;
+    await performMutation(async () => {
+      const { error: updateError } = await client
+        .from("action_items")
+        .update({ assignee_participant_id: participantId })
+        .eq("id", item.id);
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Action item assignment failed");
   }
 
   async function copyRoomLink() {
@@ -563,27 +747,27 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
   if (!participant) {
     return (
-      <main className="grid min-h-screen place-items-center p-6">
-        <form onSubmit={joinRoom} className="w-full max-w-md rounded-[2rem] border border-zinc-200 bg-white/85 p-6 shadow-2xl">
-          <p className="text-sm font-medium text-indigo-600">{room.name}</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">Join the retro</h1>
-          <p className="mt-3 text-sm leading-6 text-zinc-500">
+      <main className="grid h-dvh place-items-center p-6 text-slate-100">
+        <form onSubmit={joinRoom} className="liquid-panel w-full max-w-md rounded-[2rem] p-6">
+          <p className="text-sm font-medium text-cyan-200">{room.name}</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Join the retro</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-400">
             Pick a name or pseudonym. It is stored locally on this device and used for cards, votes, and comments.
           </p>
           <label className="mt-6 block">
-            <span className="mb-2 block text-sm font-medium text-zinc-700">Your name</span>
+            <span className="mb-2 block text-sm font-medium text-slate-300">Your name</span>
             <input
               value={joinName}
               onChange={(event) => setJoinName(event.target.value)}
               placeholder="Alex"
-              className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-zinc-950 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-cyan-200/50"
             />
           </label>
           {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
           <button
             type="submit"
             disabled={isJoining}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-950 px-5 py-3 font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+            className="primary-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium disabled:opacity-50"
           >
             {isJoining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Join room
@@ -600,40 +784,45 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     room.timer_status !== "ended";
 
   return (
-    <main className="min-h-screen px-5 py-5">
+    <main className="h-dvh overflow-hidden p-4 text-slate-100">
       {room.timer_status === "ended" ? (
-        <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
+        <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
           Time is up. Cards are revealed.
         </div>
       ) : null}
+      {operationError ? (
+        <div className="fixed right-5 top-5 z-30 max-w-md rounded-2xl border border-red-300/20 bg-red-500/15 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur-xl">
+          {operationError}
+        </div>
+      ) : null}
 
-      <div className="mx-auto max-w-[96rem]">
-        <header className="mb-5 flex flex-col gap-4 rounded-[2rem] border border-zinc-200 bg-white/80 p-4 shadow-sm backdrop-blur lg:flex-row lg:items-center lg:justify-between">
+      <div className="mx-auto grid h-full max-w-[98rem] grid-rows-[auto_auto_minmax(0,1fr)] gap-4">
+        <header className="liquid-panel flex flex-col gap-4 rounded-[2rem] p-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">{room.name}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">{room.name}</h1>
               {isCreator ? (
-                <span className="rounded-full bg-zinc-950 px-2.5 py-1 text-xs font-medium text-white">Creator</span>
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-950">Creator</span>
               ) : null}
               {privateWriting ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-300/15 px-2.5 py-1 text-xs font-medium text-amber-100">
                   <Lock className="h-3 w-3" />
                   Private writing
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-300/15 px-2.5 py-1 text-xs font-medium text-emerald-100">
                   <Unlock className="h-3 w-3" />
                   Cards visible
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-zinc-500">Phase: {room.current_phase}</p>
+            <p className="mt-1 text-sm text-slate-400">Phase: {room.current_phase}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={copyRoomLink}
-              className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              className="ghost-button inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium"
             >
               <Clipboard className="h-4 w-4" />
               Copy link
@@ -644,10 +833,10 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
                   type="button"
                   onClick={() => updateRoom({ hide_cards_during_writing: !room.hide_cards_during_writing })}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium",
+                    "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium",
                     room.hide_cards_during_writing
-                      ? "border-amber-200 bg-amber-50 text-amber-800"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
+                      ? "border border-amber-200/20 bg-amber-300/15 text-amber-100"
+                      : "ghost-button"
                   )}
                 >
                   <Settings className="h-4 w-4" />
@@ -656,7 +845,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
                 <button
                   type="button"
                   onClick={() => updateRoom({ cards_revealed: true })}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  className="ghost-button inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium"
                 >
                   <Eye className="h-4 w-4" />
                   Reveal cards
@@ -664,7 +853,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
                 <button
                   type="button"
                   onClick={() => setShowSummary(true)}
-                  className="rounded-2xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="primary-button rounded-2xl px-4 py-2 text-sm font-medium"
                 >
                   Finish retro
                 </button>
@@ -673,7 +862,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           </div>
         </header>
 
-        <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_18rem_18rem]">
+        <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_18rem_18rem]">
           <ParticipantsBar participants={participants} onlineParticipants={onlineParticipants} />
           <TimerControls
             room={room}
@@ -720,7 +909,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           />
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <RetroBoard
             room={room}
             participant={participant}

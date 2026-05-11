@@ -34,32 +34,32 @@ export function ExportSummaryModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-zinc-950/25 p-4 backdrop-blur-sm">
-      <section className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 p-5">
+    <div className="fixed inset-0 z-40 grid place-items-center bg-black/45 p-4 backdrop-blur-md">
+      <section className="liquid-panel w-full max-w-3xl overflow-hidden rounded-[2rem]">
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-400">Finish retro</p>
-            <h2 className="mt-1 text-xl font-semibold text-zinc-950">Markdown summary</h2>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Finish retro</p>
+            <h2 className="mt-1 text-xl font-semibold text-white">Markdown summary</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-zinc-200 p-2 text-zinc-500 hover:bg-zinc-50"
+            className="ghost-button rounded-xl p-2"
             aria-label="Close summary"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <pre className="max-h-[60vh] overflow-auto bg-zinc-950 p-5 text-sm leading-6 text-zinc-100">
+        <pre className="scroll-stable max-h-[60vh] overflow-auto bg-black/35 p-5 text-sm leading-6 text-slate-100">
           {markdown}
         </pre>
 
-        <div className="flex justify-end gap-3 border-t border-zinc-200 p-5">
+        <div className="flex justify-end gap-3 border-t border-white/10 p-5">
           <button
             type="button"
             onClick={copyMarkdown}
-            className="inline-flex items-center gap-2 rounded-2xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            className="primary-button inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium"
           >
             <Clipboard className="h-4 w-4" />
             Copy Markdown

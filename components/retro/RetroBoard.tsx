@@ -24,7 +24,7 @@ type RetroBoardProps = {
   actionItems: ActionItem[];
   isCreator: boolean;
   onMoveCard: (card: RetroCard, columnId: string) => void;
-  onAddCard: (columnId: string, content: string) => void;
+  onAddCard: (columnId: string, content: string) => Promise<boolean>;
   onOpenComments: (card: RetroCard) => void;
   onEditCard: (card: RetroCard) => void;
   onDeleteCard: (card: RetroCard) => void;
@@ -76,7 +76,7 @@ export function RetroBoard({
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="scroll-stable flex h-full min-h-0 gap-4 overflow-x-auto pb-2">
         {orderedColumns.map((column, index) => (
           <RetroColumnComponent
             key={column.id}
@@ -86,7 +86,7 @@ export function RetroBoard({
             participants={participants}
             cards={cards
               .filter((card) => card.column_id === column.id)
-              .sort((first, second) => second.vote_count - first.vote_count || first.sort_order - second.sort_order)}
+              .sort((first, second) => first.sort_order - second.sort_order)}
             comments={comments}
             reactions={reactions}
             votes={votes}
@@ -111,7 +111,7 @@ export function RetroBoard({
           <button
             type="button"
             onClick={onAddColumn}
-            className="flex h-[34rem] w-64 shrink-0 flex-col items-center justify-center gap-3 rounded-[1.5rem] border border-dashed border-zinc-300 bg-white/40 text-sm font-medium text-zinc-500 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+            className="liquid-surface flex h-full min-h-[34rem] w-64 shrink-0 flex-col items-center justify-center gap-3 rounded-[1.5rem] border-dashed text-sm font-medium text-slate-300"
           >
             <Plus className="h-5 w-5" />
             Add column
