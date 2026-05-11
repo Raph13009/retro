@@ -149,7 +149,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
-    const channel = supabase
+    const client = supabase;
+    const channel = client
       .channel(`retro-db:${room.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` }, () => {
         void loadSnapshot(room.id);
@@ -178,7 +179,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       .subscribe();
 
     return () => {
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
     };
   }, [loadSnapshot, room?.id]);
 
@@ -187,7 +188,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
-    const channel = supabase.channel(`retro-presence:${room.id}`, {
+    const client = supabase;
+    const channel = client.channel(`retro-presence:${room.id}`, {
       config: { presence: { key: participant.id } }
     });
 
@@ -206,12 +208,12 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
             name: participant.name,
             avatar_color: participant.avatar_color
           });
-          await supabase.from("participants").update({ last_seen_at: new Date().toISOString() }).eq("id", participant.id);
+          await client.from("participants").update({ last_seen_at: new Date().toISOString() }).eq("id", participant.id);
         }
       });
 
     return () => {
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
       setOnlineParticipants([]);
     };
   }, [participant, room?.id]);
