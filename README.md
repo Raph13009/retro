@@ -50,6 +50,12 @@ supabase/
 npm install
 ```
 
+If `npm` is not installed on your Mac, use the bundled local helper instead:
+
+```bash
+./scripts/npm-local.sh install
+```
+
 2. Create a Supabase project, open the SQL editor, and run:
 
 ```sql
@@ -73,6 +79,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 ```bash
 npm run dev
+```
+
+If `npm` is not installed globally:
+
+```bash
+./scripts/dev-local.sh
 ```
 
 Open `http://localhost:3000`.
