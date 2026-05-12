@@ -83,8 +83,6 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [operationError, setOperationError] = useState("");
   const [remainingSeconds, setRemainingSeconds] = useState(300);
   const [showSummary, setShowSummary] = useState(false);
-  const [showTimerSettings, setShowTimerSettings] = useState(false);
-  const [timerDraftMinutes, setTimerDraftMinutes] = useState(5);
   const [oneMinuteNoticeVisible, setOneMinuteNoticeVisible] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const [textRequest, setTextRequest] = useState<TextRequest | null>(null);
@@ -523,15 +521,6 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     });
   }
 
-  function openTimerSettings() {
-    if (!isCreator || !room) {
-      return;
-    }
-
-    setTimerDraftMinutes(Math.max(1, Math.round(room.timer_duration_seconds / 60)));
-    setShowTimerSettings(true);
-  }
-
   async function startTimer(durationSeconds?: number) {
     if (!isCreator || !room) {
       return false;
@@ -539,7 +528,6 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
     const nextDuration = durationSeconds ?? room.timer_duration_seconds;
     const currentRemaining = getRemainingSeconds(room);
-    setShowTimerSettings(false);
     return updateRoom({
       creator_participant_id: room.creator_participant_id ?? participant?.id ?? null,
       timer_duration_seconds: nextDuration,
@@ -549,6 +537,24 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         durationSeconds || room.timer_status === "idle" || room.timer_status === "ended" ? nextDuration : currentRemaining,
       status: "active"
     });
+  }
+
+  async function saveTimerDuration(durationSeconds: number) {
+    if (!isCreator || !room) {
+      return false;
+    }
+
+    const patch: Partial<Room> = {
+      timer_duration_seconds: durationSeconds
+    };
+
+    if (room.timer_status !== "running") {
+      patch.timer_status = "idle";
+      patch.timer_started_at = null;
+      patch.timer_paused_remaining_seconds = durationSeconds;
+    }
+
+    return updateRoom(patch);
   }
 
   async function stopTimerAndDiscuss() {
@@ -1512,7 +1518,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       remainingSeconds={remainingSeconds}
       onPhaseChange={changePhase}
       onVoteLimitChange={updateVoteLimit}
-      onOpenTimerSettings={openTimerSettings}
+      onSaveTimerDuration={saveTimerDuration}
+      onStartTimer={startTimer}
       onStopTimer={() => {
         void stopTimerAndDiscuss();
       }}
@@ -1543,17 +1550,6 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       />
       <TextInputModal request={textRequest} onClose={() => setTextRequest(null)} />
       <RenameGroupModal group={groupToRename} onClose={() => setGroupToRename(null)} onSave={saveGroupTitle} />
-      {showTimerSettings ? (
-        <TimerSettingsModal
-          minutes={timerDraftMinutes}
-          onMinutesChange={setTimerDraftMinutes}
-          onClose={() => setShowTimerSettings(false)}
-          onStart={() => {
-            void startTimer(timerDraftMinutes * 60);
-          }}
-          startLabel={room.status === "waiting" ? "Start retro" : "Start timer"}
-        />
-      ) : null}
       {isCreator && room.timer_status === "ended" && currentPhase !== "discuss" && room.status !== "ended" ? (
         <TimerEndedDecisionModal
           onAddMinute={() => {
@@ -1713,51 +1709,6 @@ function OneMinuteTimerNotification({ visible, onClose }: { visible: boolean; on
         <button type="button" onClick={onClose} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-extrabold text-slate-500 hover:bg-violet-50">
           Dismiss
         </button>
-      </div>
-    </div>
-  );
-}
-
-function TimerSettingsModal({
-  minutes,
-  onMinutesChange,
-  onClose,
-  startLabel,
-  onStart
-}: {
-  minutes: number;
-  onMinutesChange: (minutes: number) => void;
-  onClose: () => void;
-  startLabel: string;
-  onStart: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-6 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white p-5 text-slate-950 shadow-[0_28px_90px_rgba(30,27,75,0.28)]">
-        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-violet-500">Timer setup</p>
-        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Set the writing timer</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">Default is 5 minutes. Start only when the facilitator is ready.</p>
-
-        <label className="mt-5 block">
-          <span className="mb-2 block text-sm font-bold text-slate-700">Duration in minutes</span>
-          <input
-            type="number"
-            min={1}
-            max={60}
-            value={minutes}
-            onChange={(event) => onMinutesChange(Math.max(1, Math.min(60, Number(event.target.value) || 5)))}
-            className="w-full rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-lg font-extrabold outline-none focus:border-violet-400"
-          />
-        </label>
-
-        <div className="mt-6 grid gap-2 sm:grid-cols-[0.9fr_1.3fr]">
-          <button type="button" onClick={onClose} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-extrabold text-slate-600">
-            Cancel
-          </button>
-          <button type="button" onClick={onStart} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg">
-            {startLabel}
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -53,7 +53,7 @@ export function CardGroup({
     <section
       ref={setNodeRef}
       className={cn(
-        "relative rounded-[1.45rem] border border-violet-100 bg-white/80 p-4 shadow-[0_18px_40px_rgba(88,80,132,0.12)] transition",
+        "relative rounded-[1.45rem] border border-violet-100/80 bg-white/92 p-4 shadow-[0_14px_34px_rgba(88,80,132,0.10)] transition",
         isOver && "border-violet-400 bg-white ring-2 ring-violet-300/70"
       )}
     >
@@ -67,7 +67,7 @@ export function CardGroup({
           </div>
           {groupVotes > 0 ? <p className="mt-1 pl-6 text-xs font-bold text-pink-600">{groupVotes} votes</p> : null}
         </div>
-        <span className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-extrabold text-violet-700">
+        <span className="shrink-0 rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-xs font-extrabold text-violet-700">
           {cards.length} {cards.length === 1 ? "Card" : "Cards"}
         </span>
         <button
@@ -85,7 +85,7 @@ export function CardGroup({
           <StackPreview cards={orderedCards} />
         </button>
       ) : (
-        <div className="mt-4 rounded-[1.25rem] border border-violet-100 bg-violet-50/50 p-2">
+        <div className="mt-4 rounded-[1.25rem] border border-violet-100 bg-violet-50/35 p-2">
           <div className="mb-2 flex items-center justify-between px-1">
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Cards in group</p>
             <button type="button" onClick={() => setExpanded(false)} className="rounded-full px-2 py-1 text-xs font-bold text-violet-600 hover:bg-white">
@@ -97,7 +97,7 @@ export function CardGroup({
               <button
                 type="button"
                 onClick={() => onDeleteGroup(group)}
-                className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-violet-50/70 text-sm font-semibold text-violet-500"
+                className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-white/70 text-sm font-semibold text-violet-500"
               >
                 <Plus className="h-4 w-4" />
                 Drop cards here
@@ -134,7 +134,7 @@ function StackPreview({ cards }: { cards: RetroCard[] }) {
 
   if (!topCard) {
     return (
-      <div className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-violet-50/70 text-sm font-semibold text-violet-500">
+      <div className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-white/70 text-sm font-semibold text-violet-500">
         <Plus className="h-4 w-4" />
         Drop cards here
       </div>
@@ -147,7 +147,7 @@ function StackPreview({ cards }: { cards: RetroCard[] }) {
         <div
           key={`layer-${index}`}
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-2 h-[7.2rem] rounded-2xl border border-violet-100 bg-white shadow-[0_10px_22px_rgba(88,80,132,0.08)]"
+          className="pointer-events-none absolute inset-x-2 h-[7.2rem] rounded-2xl border border-violet-100 bg-white shadow-[0_10px_22px_rgba(88,80,132,0.07)]"
           style={{
             top: (index + 1) * 7,
             zIndex: layerCount - index,
@@ -155,11 +155,11 @@ function StackPreview({ cards }: { cards: RetroCard[] }) {
           }}
         />
       ))}
-      <div className="absolute inset-x-0 top-0 z-10 min-h-[7.2rem] rounded-2xl border border-slate-100 bg-white p-3 text-sm font-medium text-slate-700 shadow-[0_16px_34px_rgba(30,27,75,0.16)]">
+      <div className="absolute inset-x-0 top-0 z-10 min-h-[7.2rem] rounded-2xl border border-slate-100 bg-white p-3 text-sm font-medium text-slate-700 shadow-[0_14px_30px_rgba(30,27,75,0.12)]">
         <p className="line-clamp-3 text-sm font-semibold leading-5 text-slate-800">{topCard.content}</p>
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs font-bold text-slate-400">Click to expand</span>
-          <span className="rounded-full bg-violet-100 px-2 py-1 text-xs font-extrabold text-violet-700">
+          <span className="rounded-full border border-violet-100 bg-violet-50 px-2 py-1 text-xs font-extrabold text-violet-700">
             {cards.length} {cards.length === 1 ? "Card" : "Cards"}
           </span>
         </div>

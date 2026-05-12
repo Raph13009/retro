@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { MeetingPhase, Participant, PresenceParticipant, Room } from "@/lib/retro/types";
 import { BottomMeetingBar } from "@/components/retro/BottomMeetingBar";
 import { PhaseHeader } from "@/components/retro/PhaseHeader";
+import { RealtimeCursors } from "@/components/retro/RealtimeCursors";
 import { RetroSidebar } from "@/components/retro/RetroSidebar";
 
 type RetroLayoutProps = {
@@ -16,7 +17,8 @@ type RetroLayoutProps = {
   remainingSeconds: number;
   onPhaseChange: (phase: MeetingPhase) => void;
   onVoteLimitChange: (limit: number) => Promise<boolean> | boolean;
-  onOpenTimerSettings: () => void;
+  onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
+  onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
   onConfirmDiscuss: () => void;
   onCloseRoom: () => void;
@@ -33,13 +35,15 @@ export function RetroLayout({
   remainingSeconds,
   onPhaseChange,
   onVoteLimitChange,
-  onOpenTimerSettings,
+  onSaveTimerDuration,
+  onStartTimer,
   onStopTimer,
   onConfirmDiscuss,
   onCloseRoom,
   children
 }: RetroLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const boardRef = useRef<HTMLDivElement | null>(null);
 
   return (
     <main className="relative z-10 flex h-dvh overflow-hidden bg-[#f1eefe] text-slate-950">
@@ -51,10 +55,14 @@ export function RetroLayout({
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
         onPhaseChange={onPhaseChange}
+        onCloseRoom={onCloseRoom}
       />
       <section className="relative flex min-w-0 flex-1 flex-col">
         <PhaseHeader phase={phase} participants={participants} onlineParticipants={onlineParticipants} />
-        <div className="min-h-0 flex-1 px-8 pb-24">{children}</div>
+        <div ref={boardRef} className="relative min-h-0 flex-1 bg-transparent">
+          {children}
+          <RealtimeCursors room={room} participant={participant} onlineParticipants={onlineParticipants} boardRef={boardRef} />
+        </div>
       </section>
       <BottomMeetingBar
         room={room}
@@ -63,10 +71,10 @@ export function RetroLayout({
         remainingSeconds={remainingSeconds}
         isCreator={isCreator}
         onVoteLimitChange={onVoteLimitChange}
-        onOpenTimerSettings={onOpenTimerSettings}
+        onSaveTimerDuration={onSaveTimerDuration}
+        onStartTimer={onStartTimer}
         onStopTimer={onStopTimer}
         onConfirmDiscuss={onConfirmDiscuss}
-        onCloseRoom={onCloseRoom}
         sidebarCollapsed={sidebarCollapsed}
       />
     </main>

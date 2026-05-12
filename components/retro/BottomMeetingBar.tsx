@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { Lightbulb, Music2, Pause, Play, Square, Timer, UsersRound } from "lucide-react";
 import type { MeetingPhase, Participant, Room } from "@/lib/retro/types";
 import { getVoteLimit } from "@/lib/retro/types";
@@ -11,10 +11,10 @@ type BottomMeetingBarProps = {
   remainingSeconds: number;
   isCreator: boolean;
   onVoteLimitChange: (limit: number) => Promise<boolean> | boolean;
-  onOpenTimerSettings: () => void;
+  onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
+  onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
   onConfirmDiscuss: () => void;
-  onCloseRoom: () => void;
   sidebarCollapsed: boolean;
 };
 
@@ -33,14 +33,12 @@ export function BottomMeetingBar({
   remainingSeconds,
   isCreator,
   onVoteLimitChange,
-  onOpenTimerSettings,
+  onSaveTimerDuration,
+  onStartTimer,
   onStopTimer,
   onConfirmDiscuss,
-  onCloseRoom,
   sidebarCollapsed
 }: BottomMeetingBarProps) {
-  const timerLabel = room.timer_status === "idle" ? formatTime(room.timer_duration_seconds) : formatTime(remainingSeconds);
-  const waitingToStart = room.status === "waiting";
   const voteLimit = getVoteLimit(room);
 
   return (
@@ -52,76 +50,57 @@ export function BottomMeetingBar({
         )}
       >
         <MusicPicker />
-        <button
-          className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
-          type="button"
-          onClick={onOpenTimerSettings}
-          disabled={!isCreator}
-        >
-          <Timer className="h-4 w-4 text-violet-500" />
-          Timer {timerLabel}
-        </button>
-        {isCreator ? (
-          <>
-            {room.timer_status === "running" ? (
-              <button type="button" onClick={onStopTimer} className="flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-white shadow-lg shadow-rose-300/40">
-                <Square className="h-3.5 w-3.5 fill-current" />
-                Stop
-              </button>
-            ) : room.timer_status === "ended" ? (
-              phase === "discuss" ? (
-                <span className="rounded-full bg-slate-100 px-4 py-2 text-slate-500">Timer ended</span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onConfirmDiscuss}
-                  className="rounded-full bg-violet-600 px-4 py-2 text-white shadow-lg shadow-violet-300/40"
-                >
-                  Discuss
-                </button>
-              )
-            ) : (
-              <button
-                type="button"
-                onClick={onOpenTimerSettings}
-                className="flex items-center gap-2 rounded-full bg-slate-950 px-5 py-2.5 text-white shadow-lg shadow-slate-400/30"
-              >
-                <Play className="h-4 w-4 text-violet-200" />
-                {waitingToStart ? "Start retro" : "Start timer"}
-              </button>
-            )}
-          </>
-        ) : null}
+        <TimerPicker
+          room={room}
+          phase={phase}
+          remainingSeconds={remainingSeconds}
+          isCreator={isCreator}
+          onSaveTimerDuration={onSaveTimerDuration}
+          onStartTimer={onStartTimer}
+          onStopTimer={onStopTimer}
+          onConfirmDiscuss={onConfirmDiscuss}
+        />
         <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50" type="button">
           <Lightbulb className="h-4 w-4 text-violet-500" />
           Tips
         </button>
         <div className="flex items-center gap-2 rounded-full bg-violet-50 px-3 py-2 text-violet-700">
           <UsersRound className="h-4 w-4" />
-          {participants.length}/{participants.length} Ready
+          {participants.length}
         </div>
         {phase === "discuss" ? <VoteSettingsControl voteLimit={voteLimit} isCreator={isCreator} onVoteLimitChange={onVoteLimitChange} /> : null}
-        {isCreator ? (
-          <button
-            type="button"
-            onClick={onCloseRoom}
-            className="flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-white shadow-lg shadow-rose-300/40"
-          >
-            <Square className="h-3.5 w-3.5 fill-current" />
-            Close room
-          </button>
-        ) : null}
       </div>
     </div>
   );
 }
 
+function useCloseOnOutside(containerRef: RefObject<HTMLElement | null>, open: boolean, onClose: () => void) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const container = containerRef.current;
+      if (container && !container.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [containerRef, onClose, open]);
+}
+
 function MusicPicker() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [open, setOpen] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
   const [playing, setPlaying] = useState(false);
   const [message, setMessage] = useState("");
+
+  useCloseOnOutside(containerRef, open, () => setOpen(false));
 
   useEffect(() => {
     return () => {
@@ -194,7 +173,7 @@ function MusicPicker() {
   }
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50", open && "bg-violet-50 text-violet-700")}
         type="button"
@@ -246,6 +225,126 @@ function MusicPicker() {
           </div>
 
           {message ? <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">{message}</p> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TimerPicker({
+  room,
+  phase,
+  remainingSeconds,
+  isCreator,
+  onSaveTimerDuration,
+  onStartTimer,
+  onStopTimer,
+  onConfirmDiscuss
+}: {
+  room: Room;
+  phase: MeetingPhase;
+  remainingSeconds: number;
+  isCreator: boolean;
+  onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
+  onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
+  onStopTimer: () => void;
+  onConfirmDiscuss: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [draftMinutes, setDraftMinutes] = useState(Math.max(1, Math.round(room.timer_duration_seconds / 60)));
+  const [isSaving, setIsSaving] = useState(false);
+  const timerLabel = room.timer_status === "idle" ? formatTime(room.timer_duration_seconds) : formatTime(remainingSeconds);
+  const waitingToStart = room.status === "waiting";
+  const startLabel = waitingToStart ? "Start retro" : "Start timer";
+
+  useCloseOnOutside(containerRef, open, () => setOpen(false));
+
+  useEffect(() => {
+    if (open) {
+      setDraftMinutes(Math.max(1, Math.round(room.timer_duration_seconds / 60)));
+    }
+  }, [open, room.timer_duration_seconds]);
+
+  async function saveTimerDuration() {
+    setIsSaving(true);
+    const didSave = await onSaveTimerDuration(draftMinutes * 60);
+    setIsSaving(false);
+
+    if (didSave !== false) {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="relative flex items-center gap-2">
+      <button
+        className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50", open && "bg-violet-50 text-violet-700")}
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        disabled={!isCreator}
+      >
+        <Timer className="h-4 w-4 text-violet-500" />
+        Timer {timerLabel}
+      </button>
+
+      {isCreator ? (
+        room.timer_status === "running" ? (
+          <button type="button" onClick={onStopTimer} className="flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-white shadow-lg shadow-rose-300/40">
+            <Square className="h-3.5 w-3.5 fill-current" />
+            Stop
+          </button>
+        ) : room.timer_status === "ended" ? (
+          phase === "discuss" ? (
+            <span className="rounded-full bg-slate-100 px-4 py-2 text-slate-500">Timer ended</span>
+          ) : (
+            <button type="button" onClick={onConfirmDiscuss} className="rounded-full bg-violet-600 px-4 py-2 text-white shadow-lg shadow-violet-300/40">
+              Discuss
+            </button>
+          )
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              void onStartTimer(room.timer_duration_seconds);
+            }}
+            className="flex items-center gap-2 rounded-full bg-slate-950 px-5 py-2.5 text-white shadow-lg shadow-slate-400/30"
+          >
+            <Play className="h-4 w-4 text-violet-200" />
+            {startLabel}
+          </button>
+        )
+      ) : null}
+
+      {open ? (
+        <div className="absolute bottom-full left-0 z-50 mb-3 w-72 rounded-[1.5rem] border border-violet-100 bg-white/94 p-3 text-slate-900 shadow-[0_24px_70px_rgba(30,27,75,0.22)] backdrop-blur-2xl">
+          <div className="mb-3">
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Timer setup</p>
+            <p className="mt-1 text-sm font-extrabold text-slate-950">Set the writing timer</p>
+          </div>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-extrabold text-slate-500">Duration in minutes</span>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={draftMinutes}
+              onChange={(event) => setDraftMinutes(Math.max(1, Math.min(60, Number(event.target.value) || 5)))}
+              className="w-full rounded-2xl border border-violet-100 bg-violet-50 px-3 py-2.5 text-sm font-extrabold text-slate-950 outline-none focus:border-violet-400"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => {
+              void saveTimerDuration();
+            }}
+            disabled={isSaving}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg disabled:opacity-60"
+          >
+            {isSaving ? "Saving..." : "Save"}
+          </button>
         </div>
       ) : null}
     </div>

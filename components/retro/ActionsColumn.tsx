@@ -19,8 +19,8 @@ export function ActionsColumn({ actionItems, cards, participants, onUpdateAction
     <section
       ref={setNodeRef}
       className={cn(
-        "flex h-full min-h-0 w-[360px] shrink-0 flex-col rounded-[2rem] border border-emerald-200/80 bg-emerald-50/80 p-4 shadow-[0_22px_60px_rgba(16,185,129,0.16)] transition",
-        isOver && "ring-2 ring-emerald-400"
+        "flex h-full min-h-0 w-[360px] shrink-0 flex-col rounded-[2rem] border border-emerald-100/90 bg-white/86 p-4 shadow-[0_18px_55px_rgba(16,185,129,0.10)] ring-1 ring-emerald-100/80 backdrop-blur-xl transition",
+        isOver && "border-emerald-300 bg-white ring-2 ring-emerald-300/80"
       )}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -33,12 +33,12 @@ export function ActionsColumn({ actionItems, cards, participants, onUpdateAction
           </div>
           <p className="mt-2 text-sm font-semibold text-emerald-700">Turn decisions into next steps.</p>
         </div>
-        <span className="rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-emerald-700">{orderedItems.length}</span>
+        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-extrabold text-emerald-700">{orderedItems.length}</span>
       </div>
 
       <div className="scroll-stable min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {orderedItems.length === 0 ? (
-          <div className="grid min-h-48 place-items-center rounded-[1.5rem] border border-dashed border-emerald-300/80 bg-white/45 p-5 text-center text-sm font-semibold text-emerald-600">
+          <div className="grid min-h-48 place-items-center rounded-[1.5rem] border border-dashed border-emerald-200 bg-emerald-50/45 p-5 text-center text-sm font-bold text-emerald-600">
             Drag cards here to create action items.
           </div>
         ) : (

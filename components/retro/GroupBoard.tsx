@@ -150,7 +150,7 @@ export function GroupBoard({
 
   return (
     <DndContext collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-      <div className="scroll-stable flex h-full min-h-0 gap-5 overflow-x-auto pb-2">
+      <div className="scroll-stable flex h-full min-h-0 gap-6 overflow-x-auto bg-transparent">
         {orderedColumns.map((column) => (
           <GroupColumn
             key={column.id}

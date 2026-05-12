@@ -71,21 +71,21 @@ export function GroupColumn({
     <section
       ref={setNodeRef}
       className={cn(
-        "flex h-full min-h-0 w-[360px] shrink-0 flex-col rounded-[2rem] bg-[#e6e0f6] p-4 shadow-[0_22px_60px_rgba(88,80,132,0.14)] transition",
-        isOver && "ring-2 ring-violet-400"
+        "flex h-full min-h-0 w-[360px] shrink-0 flex-col rounded-[2rem] border border-white/75 bg-white/82 p-4 shadow-[0_18px_55px_rgba(72,61,139,0.10)] ring-1 ring-violet-100/70 backdrop-blur-xl transition",
+        isOver && "border-violet-300 bg-white ring-2 ring-violet-300/80"
       )}
     >
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className={cn("h-3 w-3 rounded-full", DOT_COLORS[column.sort_order % DOT_COLORS.length])} />
-          <h2 className="text-lg font-extrabold tracking-[-0.03em] text-slate-950">{column.title}</h2>
-          <span className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-bold text-slate-500">{cards.length}</span>
+          <h2 className="text-lg font-extrabold tracking-[-0.03em] text-slate-950 drop-shadow-sm">{column.title}</h2>
+          <span className="rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-xs font-extrabold text-violet-700">{cards.length}</span>
         </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="grid h-8 w-8 place-items-center rounded-full bg-white/70 text-slate-500 shadow-sm"
+            className="grid h-8 w-8 place-items-center rounded-full border border-violet-100 bg-white/85 text-slate-500 shadow-sm transition hover:bg-violet-50 hover:text-violet-700"
             aria-label="Expand column"
           >
             <ChevronDown className={cn("h-4 w-4 transition", !expanded && "-rotate-90")} />
@@ -94,7 +94,7 @@ export function GroupColumn({
       </div>
 
       {canAddCards ? (
-        <form onSubmit={submitCard} className="mb-4 rounded-[1.5rem] border border-violet-200 bg-white/70 p-3 shadow-sm">
+        <form onSubmit={submitCard} className="mb-4 rounded-[1.5rem] border border-violet-100 bg-white/90 p-3 shadow-[0_10px_28px_rgba(88,80,132,0.08)]">
           <textarea
             value={content}
             onChange={(event) => setContent(event.target.value)}
@@ -135,10 +135,10 @@ export function GroupColumn({
           ))}
 
           {columnCards.length > 0 ? (
-            <div className="rounded-[1.5rem] border border-dashed border-violet-300/70 bg-white/35 p-3">
+            <div className="rounded-[1.5rem] border border-dashed border-violet-200/90 bg-violet-50/45 p-3">
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Ungrouped</p>
-                <span className="rounded-full bg-white/70 px-2 py-1 text-xs font-bold text-violet-600">{columnCards.length}</span>
+                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-600">Ungrouped</p>
+                <span className="rounded-full border border-violet-100 bg-white px-2 py-1 text-xs font-extrabold text-violet-700">{columnCards.length}</span>
               </div>
               <div className="space-y-2">
                 {columnCards
@@ -163,7 +163,7 @@ export function GroupColumn({
           ) : null}
 
           {groups.length === 0 && columnCards.length === 0 ? (
-            <div className="grid min-h-48 place-items-center rounded-[1.5rem] border border-dashed border-violet-300/70 bg-white/35 p-5 text-center text-sm font-semibold text-violet-400">
+            <div className="grid min-h-48 place-items-center rounded-[1.5rem] border border-dashed border-violet-200 bg-violet-50/45 p-5 text-center text-sm font-bold text-violet-500">
               {canAddCards ? "No reflections yet" : "Drop a card here to create a group"}
             </div>
           ) : null}
@@ -208,9 +208,9 @@ function UngroupedCard({
     <article
       ref={setNodeRef}
       className={cn(
-        "rounded-2xl bg-white p-3 shadow-md transition",
+        "rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_10px_24px_rgba(30,27,75,0.08)] transition",
         topVoted && "ring-2 ring-amber-300 shadow-[0_18px_36px_rgba(245,158,11,0.2)]",
-        isOver && "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#e6e0f6]",
+        isOver && "ring-2 ring-violet-400 ring-offset-2 ring-offset-white",
         isDragging && "opacity-35"
       )}
       {...attributes}
