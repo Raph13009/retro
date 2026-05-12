@@ -124,7 +124,7 @@ export type RoomSnapshot = {
 
 export const DEFAULT_COLUMNS = ["Start", "Stop", "Continue"];
 export const MEETING_PHASES: MeetingPhase[] = ["reflect", "group", "vote", "discuss"];
-export const SUGGESTED_EMOJIS = ["👍", "❤️", "😂", "👀", "🔥", "✅", "🤔"];
+export const SUGGESTED_EMOJIS = ["❤️", "😂", "👀", "🔥", "✅"];
 
 export function getVoteLimit(room: Room) {
   return room.vote_limit_per_participant ?? room.vote_limit ?? 3;

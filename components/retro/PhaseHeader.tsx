@@ -18,7 +18,7 @@ const SUBTITLES: Record<MeetingPhase, string> = {
 
 export function PhaseHeader({ phase, participants, onlineParticipants }: PhaseHeaderProps) {
   return (
-    <header className="flex items-start justify-between gap-6 pb-5 pl-0 pr-8 pt-7">
+    <header className="flex items-start justify-between gap-6 pb-5 pt-7">
       <div>
         <div className="block">
           <SplitText

@@ -9,12 +9,12 @@ export function AppToast({ message, onClose }: AppToastProps) {
   }
 
   return (
-    <div className="fixed right-5 top-5 z-50 max-w-md rounded-2xl border border-violet-200/30 bg-white/90 px-4 py-3 text-sm font-bold text-slate-800 shadow-2xl shadow-violet-950/20 backdrop-blur-2xl">
+    <div className="fixed right-5 top-5 z-50 max-w-md rounded-2xl border border-[#ded8e8]/80 bg-white/92 px-4 py-3 text-sm font-bold text-slate-800 shadow-[0_24px_70px_-42px_rgba(49,46,78,0.38)] backdrop-blur-2xl">
       <div className="flex items-start gap-3">
-        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-violet-500 shadow-[0_0_16px_rgba(139,92,246,0.9)]" />
+        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#6d668f]" />
         <p className="leading-5">{message}</p>
         {onClose ? (
-          <button type="button" onClick={onClose} className="ml-auto rounded-full px-2 text-xs font-extrabold text-violet-600 hover:bg-violet-50">
+          <button type="button" onClick={onClose} className="ml-auto rounded-full px-2 text-xs font-extrabold text-[#4f4974] hover:bg-[#f1eef6]">
             Close
           </button>
         ) : null}

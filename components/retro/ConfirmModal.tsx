@@ -50,8 +50,8 @@ export function ConfirmModal({
             }}
             disabled={isSubmitting}
             className={cn(
-              "flex-[1.2] rounded-2xl px-4 py-3 text-sm font-extrabold text-white shadow-lg disabled:opacity-60",
-              tone === "danger" ? "bg-rose-500 shadow-rose-300/40" : "bg-slate-950 shadow-slate-400/30"
+              "flex-[1.2] rounded-2xl px-4 py-3 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)] disabled:opacity-60",
+              tone === "danger" ? "bg-[#c05f5f]" : "bg-[#343052]"
             )}
           >
             {isSubmitting ? "Saving..." : confirmLabel}

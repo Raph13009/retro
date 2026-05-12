@@ -58,7 +58,7 @@ export function RetroCard({
       className={cn(
         "liquid-card rounded-2xl p-4",
         isDragging && "z-20 opacity-70",
-        card.vote_count > 0 && "ring-1 ring-cyan-300/45"
+        card.vote_count > 0 && "ring-1 ring-[#c9c2d7]"
       )}
     >
       <div className="flex items-start gap-2">
@@ -92,7 +92,7 @@ export function RetroCard({
           disabled={!canVote}
           className={cn(
             "rounded-full px-2.5 py-1 text-xs font-medium transition",
-            participantVote ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+            participantVote ? "bg-[#343052] text-white" : "bg-slate-100 text-slate-600 hover:bg-[#f1eef6]",
             !canVote && "opacity-50"
           )}
         >
@@ -119,7 +119,7 @@ export function RetroCard({
             <button
               type="button"
               onClick={() => onDelete(card)}
-              className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
+              className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-[#f8eeee] hover:text-[#b55252]"
               aria-label="Delete card"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -130,7 +130,7 @@ export function RetroCard({
           type="button"
           onClick={() => onConvertToActionItem(card)}
           disabled={Boolean(actionItem)}
-          className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50"
+          className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-[#eef5ef] hover:text-[#557b5e] disabled:opacity-50"
           aria-label="Convert to action item"
         >
           <CheckSquare className="h-3.5 w-3.5" />
@@ -146,7 +146,7 @@ export function RetroCard({
             className={cn(
               "rounded-full border px-2 py-1 text-xs transition",
               reaction.active
-                ? "border-slate-300 bg-slate-950 text-white"
+                ? "border-[#343052] bg-[#343052] text-white"
                 : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
             )}
           >

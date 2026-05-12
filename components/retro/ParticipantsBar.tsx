@@ -22,15 +22,15 @@ export function ParticipantsBar({ participants, onlineParticipants }: Participan
             {participant.name.slice(0, 1).toUpperCase()}
             <span
               className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${
-                onlineIds.has(participant.id) ? "bg-emerald-400" : "bg-slate-500"
+                onlineIds.has(participant.id) ? "bg-[#76a681]" : "bg-slate-400"
               }`}
             />
           </div>
         ))}
       </div>
       <div>
-        <p className="text-sm font-medium text-white">{participants.length} participants</p>
-        <p className="text-xs text-slate-400">{onlineIds.size} online now</p>
+        <p className="text-sm font-medium text-neutral-950">{participants.length} participants</p>
+        <p className="text-xs text-slate-500">{onlineIds.size} online now</p>
       </div>
     </div>
   );

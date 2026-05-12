@@ -29,17 +29,17 @@ export function VotingPanel({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Voting</p>
-          <p className="mt-1 text-2xl font-semibold text-white">{remainingVotes}</p>
-          <p className="text-sm text-slate-400">votes remaining</p>
+          <p className="mt-1 text-2xl font-semibold text-neutral-950">{remainingVotes}</p>
+          <p className="text-sm text-slate-500">votes remaining</p>
         </div>
-        <span className="rounded-full bg-cyan-300/12 px-3 py-1 text-xs font-medium capitalize text-cyan-100">
+        <span className="rounded-full bg-[#ebe8f4] px-3 py-1 text-xs font-medium capitalize text-[#4f4974]">
           {room.current_phase}
         </span>
       </div>
 
       {isCreator ? (
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-slate-300">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
             Limit
             <input
               type="number"
@@ -47,7 +47,7 @@ export function VotingPanel({
               max={20}
               value={voteLimit}
               onChange={(event) => onVoteLimitChange(Number(event.target.value))}
-              className="dark-field w-16 rounded-xl px-3 py-2 text-sm outline-none focus:border-cyan-200/50"
+              className="dark-field w-16 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#8c83ad]"
             />
           </label>
           <button

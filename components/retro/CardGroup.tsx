@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Pencil, Plus, Ungroup } from "lucide-react";
 import { CardVotingControls } from "@/components/retro/CardVotingControls";
+import { GhostReflection, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
 import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, Vote } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
@@ -42,19 +43,16 @@ export function CardGroup({
   const { setNodeRef, isOver } = useDroppable({ id: `group:${group.id}` });
   const groupVotes = cards.reduce((total, card) => total + card.vote_count, 0);
   const orderedCards = useMemo(
-    () =>
-      [...cards].sort((first, second) =>
-        phase === "discuss" ? second.vote_count - first.vote_count || first.position - second.position : first.position - second.position
-      ),
-    [cards, phase]
+    () => [...cards].sort((first, second) => first.position - second.position),
+    [cards]
   );
 
   return (
     <section
       ref={setNodeRef}
       className={cn(
-        "relative rounded-[1.45rem] border border-violet-100/80 bg-white/92 p-4 shadow-[0_14px_34px_rgba(88,80,132,0.10)] transition",
-        isOver && "border-violet-400 bg-white ring-2 ring-violet-300/70"
+        "retro-group-surface relative rounded-[1.55rem] p-4 transition",
+        isOver && "border-[#8c83ad] bg-white ring-2 ring-[#d6d1e2]/80"
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -65,15 +63,15 @@ export function CardGroup({
             </button>
             <h3 className="truncate text-base font-bold text-slate-950">{group.title}</h3>
           </div>
-          {groupVotes > 0 ? <p className="mt-1 pl-6 text-xs font-bold text-pink-600">{groupVotes} votes</p> : null}
+          {groupVotes > 0 ? <p className="mt-1 pl-6 text-xs font-bold text-[#8a5d66]">{groupVotes} votes</p> : null}
         </div>
-        <span className="shrink-0 rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-xs font-extrabold text-violet-700">
+        <span className="shrink-0 rounded-full border border-[#ded8e8] bg-white/64 px-2.5 py-1 text-xs font-extrabold text-[#4f4974]">
           {cards.length} {cards.length === 1 ? "Card" : "Cards"}
         </span>
         <button
           type="button"
           onClick={() => onRenameGroup(group)}
-          className="rounded-full p-1.5 text-slate-400 hover:bg-violet-50 hover:text-violet-700"
+          className="rounded-full p-1.5 text-slate-400 hover:bg-[#f1eef6] hover:text-[#4f4974]"
           aria-label="Rename group"
         >
           <Pencil className="h-4 w-4" />
@@ -82,13 +80,13 @@ export function CardGroup({
 
       {!expanded ? (
         <button type="button" onClick={() => setExpanded(true)} className="mt-4 block w-full text-left" aria-label={`Open ${group.title} group`}>
-          <StackPreview cards={orderedCards} />
+          <StackPreview cards={orderedCards} phase={phase} currentParticipantId={currentParticipantId} />
         </button>
       ) : (
-        <div className="mt-4 rounded-[1.25rem] border border-violet-100 bg-violet-50/35 p-2">
+        <div className="mt-4 rounded-[1.25rem] border border-[#ded8e8]/80 bg-white/44 p-2.5 shadow-inner">
           <div className="mb-2 flex items-center justify-between px-1">
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Cards in group</p>
-            <button type="button" onClick={() => setExpanded(false)} className="rounded-full px-2 py-1 text-xs font-bold text-violet-600 hover:bg-white">
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#6d668f]">Cards in group</p>
+            <button type="button" onClick={() => setExpanded(false)} className="rounded-full px-2 py-1 text-xs font-bold text-[#625b84] hover:bg-white">
               Collapse
             </button>
           </div>
@@ -97,7 +95,7 @@ export function CardGroup({
               <button
                 type="button"
                 onClick={() => onDeleteGroup(group)}
-                className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-white/70 text-sm font-semibold text-violet-500"
+                className="retro-drop-zone flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold text-[#625b84]"
               >
                 <Plus className="h-4 w-4" />
                 Drop cards here
@@ -128,13 +126,13 @@ export function CardGroup({
   );
 }
 
-function StackPreview({ cards }: { cards: RetroCard[] }) {
+function StackPreview({ cards, phase, currentParticipantId }: { cards: RetroCard[]; phase: MeetingPhase; currentParticipantId: string }) {
   const topCard = cards[0];
   const layerCount = Math.min(Math.max(cards.length - 1, 0), 3);
 
   if (!topCard) {
     return (
-      <div className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-white/70 text-sm font-semibold text-violet-500">
+      <div className="retro-drop-zone flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold text-[#625b84]">
         <Plus className="h-4 w-4" />
         Drop cards here
       </div>
@@ -147,7 +145,7 @@ function StackPreview({ cards }: { cards: RetroCard[] }) {
         <div
           key={`layer-${index}`}
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-2 h-[7.2rem] rounded-2xl border border-violet-100 bg-white shadow-[0_10px_22px_rgba(88,80,132,0.07)]"
+          className="retro-stack-layer pointer-events-none absolute inset-x-2 h-[7.2rem] rounded-2xl"
           style={{
             top: (index + 1) * 7,
             zIndex: layerCount - index,
@@ -155,11 +153,15 @@ function StackPreview({ cards }: { cards: RetroCard[] }) {
           }}
         />
       ))}
-      <div className="absolute inset-x-0 top-0 z-10 min-h-[7.2rem] rounded-2xl border border-slate-100 bg-white p-3 text-sm font-medium text-slate-700 shadow-[0_14px_30px_rgba(30,27,75,0.12)]">
-        <p className="line-clamp-3 text-sm font-semibold leading-5 text-slate-800">{topCard.content}</p>
+      <div className="retro-card-surface absolute inset-x-0 top-0 z-10 min-h-[7.2rem] rounded-2xl p-3 text-sm font-medium text-slate-700">
+        {shouldHideReflectionContent(phase, topCard.author_participant_id, currentParticipantId) ? (
+          <GhostReflection compact />
+        ) : (
+          <p className="line-clamp-3 text-sm font-semibold leading-5 text-slate-800">{topCard.content}</p>
+        )}
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs font-bold text-slate-400">Click to expand</span>
-          <span className="rounded-full border border-violet-100 bg-violet-50 px-2 py-1 text-xs font-extrabold text-violet-700">
+          <span className="rounded-full border border-[#ded8e8] bg-white/64 px-2 py-1 text-xs font-extrabold text-[#4f4974]">
             {cards.length} {cards.length === 1 ? "Card" : "Cards"}
           </span>
         </div>
@@ -197,6 +199,7 @@ function GroupedCard({
 }) {
   const { attributes, listeners, setNodeRef: setDraggableNodeRef, isDragging } = useDraggable({ id: `card:${card.id}` });
   const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({ id: `card-drop:${card.id}` });
+  const hiddenReflection = shouldHideReflectionContent(phase, card.author_participant_id, currentParticipantId);
 
   function setNodeRef(node: HTMLElement | null) {
     setDraggableNodeRef(node);
@@ -210,24 +213,25 @@ function GroupedCard({
         zIndex: index + 1
       }}
       className={cn(
-        "relative rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_10px_22px_rgba(15,23,42,0.1)] transition",
-        topVoted && "border-amber-200 ring-2 ring-amber-300 shadow-[0_18px_36px_rgba(245,158,11,0.2)]",
-        isOver && "ring-2 ring-violet-400 ring-offset-2 ring-offset-violet-50",
+        "retro-card-surface relative rounded-2xl p-3",
+        !hiddenReflection && phase === "discuss" && "reflection-reveal",
+        topVoted && "border-amber-200 ring-2 ring-amber-200 shadow-[0_18px_36px_-24px_rgba(180,120,40,0.32)]",
+        isOver && "ring-2 ring-[#8c83ad] ring-offset-2 ring-offset-[#f6f3ed]",
         isDragging && "opacity-35"
       )}
       {...attributes}
       {...listeners}
     >
-      <p className="text-sm font-medium leading-5 text-slate-800">{card.content}</p>
+      {hiddenReflection ? <GhostReflection /> : <p className="whitespace-pre-wrap text-sm font-medium leading-5 text-slate-800">{card.content}</p>}
       <div className="mt-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
           <span
             className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
-            style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
+            style={{ backgroundColor: hiddenReflection ? "#b9b2cf" : participant?.avatar_color ?? "#94a3b8" }}
           >
-            {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
+            {hiddenReflection ? "?" : (participant?.name ?? "?").slice(0, 1).toUpperCase()}
           </span>
-          {card.vote_count} votes
+          {hiddenReflection ? "Someone is reflecting" : `${card.vote_count} votes`}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -243,16 +247,18 @@ function GroupedCard({
           </button>
         </div>
       </div>
-      <CardVotingControls
-        card={card}
-        phase={phase}
-        votes={votes}
-        reactions={reactions}
-        currentParticipantId={currentParticipantId}
-        voteLimit={voteLimit}
-        onVoteCard={onVoteCard}
-        onReact={onReact}
-      />
+      {!hiddenReflection ? (
+        <CardVotingControls
+          card={card}
+          phase={phase}
+          votes={votes}
+          reactions={reactions}
+          currentParticipantId={currentParticipantId}
+          voteLimit={voteLimit}
+          onVoteCard={onVoteCard}
+          onReact={onReact}
+        />
+      ) : null}
     </article>
   );
 }

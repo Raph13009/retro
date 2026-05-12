@@ -136,6 +136,16 @@ create table if not exists public.action_items (
   unique (card_id)
 );
 
+create table if not exists public.support_tickets (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid references public.rooms(id) on delete set null,
+  participant_id uuid references public.participants(id) on delete set null,
+  name text not null,
+  description text not null,
+  status text not null default 'open' check (status in ('open', 'triaged', 'closed')),
+  created_at timestamptz not null default now()
+);
+
 create index if not exists participants_room_id_idx on public.participants(room_id);
 create index if not exists columns_room_id_sort_order_idx on public.columns(room_id, sort_order);
 create index if not exists card_groups_room_id_column_id_position_idx on public.card_groups(room_id, column_id, position);
@@ -146,6 +156,8 @@ create index if not exists comments_room_id_card_id_idx on public.comments(room_
 create index if not exists reactions_room_id_card_id_idx on public.reactions(room_id, card_id);
 create index if not exists action_items_room_id_idx on public.action_items(room_id);
 create index if not exists action_items_room_id_position_idx on public.action_items(room_id, position);
+create index if not exists support_tickets_room_id_idx on public.support_tickets(room_id);
+create index if not exists support_tickets_status_created_at_idx on public.support_tickets(status, created_at desc);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -298,6 +310,7 @@ alter table public.votes enable row level security;
 alter table public.comments enable row level security;
 alter table public.reactions enable row level security;
 alter table public.action_items enable row level security;
+alter table public.support_tickets enable row level security;
 
 drop policy if exists "rooms are link accessible" on public.rooms;
 create policy "rooms are link accessible" on public.rooms
@@ -353,6 +366,11 @@ create policy "action items are link accessible" on public.action_items
   using (true)
   with check (true);
 
+drop policy if exists "support tickets can be submitted" on public.support_tickets;
+create policy "support tickets can be submitted" on public.support_tickets
+  for insert to anon, authenticated
+  with check (true);
+
 grant usage on schema public to anon, authenticated;
 grant all on public.rooms to anon, authenticated;
 grant all on public.participants to anon, authenticated;
@@ -363,6 +381,7 @@ grant all on public.votes to anon, authenticated;
 grant all on public.comments to anon, authenticated;
 grant all on public.reactions to anon, authenticated;
 grant all on public.action_items to anon, authenticated;
+grant insert on public.support_tickets to anon, authenticated;
 
 alter table public.rooms replica identity full;
 alter table public.participants replica identity full;

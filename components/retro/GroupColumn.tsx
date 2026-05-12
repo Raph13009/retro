@@ -3,6 +3,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, Ungroup } from "lucide-react";
 import { CardVotingControls } from "@/components/retro/CardVotingControls";
 import { CardGroup } from "@/components/retro/CardGroup";
+import { GhostReflection, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
 import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +27,7 @@ type GroupColumnProps = {
   onReact: (card: RetroCard, emoji: string) => void;
 };
 
-const DOT_COLORS = ["bg-rose-400", "bg-amber-400", "bg-emerald-400", "bg-sky-400", "bg-violet-400"];
+const DOT_COLORS = ["bg-rose-300", "bg-amber-300", "bg-emerald-300", "bg-teal-300", "bg-indigo-300"];
 
 export function GroupColumn({
   column,
@@ -71,21 +72,21 @@ export function GroupColumn({
     <section
       ref={setNodeRef}
       className={cn(
-        "flex h-full min-h-0 w-[360px] shrink-0 flex-col rounded-[2rem] border border-white/75 bg-white/82 p-4 shadow-[0_18px_55px_rgba(72,61,139,0.10)] ring-1 ring-violet-100/70 backdrop-blur-xl transition",
-        isOver && "border-violet-300 bg-white ring-2 ring-violet-300/80"
+        "retro-column-surface flex h-full min-h-0 w-[360px] shrink-0 flex-col rounded-[2rem] p-5 backdrop-blur-xl transition",
+        isOver && "border-[#8c83ad] bg-white ring-2 ring-[#d6d1e2]/80"
       )}
     >
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className={cn("h-3 w-3 rounded-full", DOT_COLORS[column.sort_order % DOT_COLORS.length])} />
-          <h2 className="text-lg font-extrabold tracking-[-0.03em] text-slate-950 drop-shadow-sm">{column.title}</h2>
-          <span className="rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-xs font-extrabold text-violet-700">{cards.length}</span>
+          <h2 className="text-lg font-extrabold tracking-[-0.03em] text-neutral-950">{column.title}</h2>
+          <span className="rounded-full border border-[#ded8e8] bg-white/68 px-2.5 py-1 text-xs font-extrabold text-[#4f4974]">{cards.length}</span>
         </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="grid h-8 w-8 place-items-center rounded-full border border-violet-100 bg-white/85 text-slate-500 shadow-sm transition hover:bg-violet-50 hover:text-violet-700"
+            className="grid h-8 w-8 place-items-center rounded-full border border-[#ded8e8] bg-white/85 text-slate-500 shadow-sm transition hover:bg-[#f1eef6] hover:text-[#4f4974]"
             aria-label="Expand column"
           >
             <ChevronDown className={cn("h-4 w-4 transition", !expanded && "-rotate-90")} />
@@ -94,7 +95,7 @@ export function GroupColumn({
       </div>
 
       {canAddCards ? (
-        <form onSubmit={submitCard} className="mb-4 rounded-[1.5rem] border border-violet-100 bg-white/90 p-3 shadow-[0_10px_28px_rgba(88,80,132,0.08)]">
+        <form onSubmit={submitCard} className="mb-4 rounded-[1.5rem] border border-[#ded8e8]/90 bg-white/92 p-3 shadow-[0_12px_30px_-22px_rgba(49,46,78,0.22)]">
           <textarea
             value={content}
             onChange={(event) => setContent(event.target.value)}
@@ -105,7 +106,7 @@ export function GroupColumn({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-slate-400/30 disabled:opacity-60"
+            className="w-full rounded-2xl bg-[#343052] px-4 py-2 text-sm font-bold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)] transition hover:bg-[#2b2748] disabled:opacity-60"
           >
             {isSubmitting ? "Saving..." : "Add card"}
           </button>
@@ -113,7 +114,7 @@ export function GroupColumn({
       ) : null}
 
       {expanded ? (
-        <div className="scroll-stable min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+        <div className="scrollbar-hide min-h-0 flex-1 space-y-4 overflow-y-auto px-1.5 pb-8 pt-2">
           {groups.map((group) => (
             <CardGroup
               key={group.id}
@@ -134,36 +135,26 @@ export function GroupColumn({
             />
           ))}
 
-          {columnCards.length > 0 ? (
-            <div className="rounded-[1.5rem] border border-dashed border-violet-200/90 bg-violet-50/45 p-3">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-600">Ungrouped</p>
-                <span className="rounded-full border border-violet-100 bg-white px-2 py-1 text-xs font-extrabold text-violet-700">{columnCards.length}</span>
-              </div>
-              <div className="space-y-2">
-                {columnCards
-                  .sort((first, second) => first.position - second.position || first.sort_order - second.sort_order)
-                  .map((card) => (
-                    <UngroupedCard
-                      key={card.id}
-                      card={card}
-                      participant={participants.find((candidate) => candidate.id === card.author_participant_id)}
-                      phase={phase}
-                      votes={votes}
-                      reactions={reactions}
-                      currentParticipantId={currentParticipantId}
-                      voteLimit={voteLimit}
-                      topVoted={phase === "vote" && maxVoteCount > 0 && card.vote_count === maxVoteCount}
-                      onVoteCard={onVoteCard}
-                      onReact={onReact}
-                    />
-                  ))}
-              </div>
-            </div>
-          ) : null}
+          {columnCards
+            .sort((first, second) => first.position - second.position || first.sort_order - second.sort_order)
+            .map((card) => (
+              <UngroupedCard
+                key={card.id}
+                card={card}
+                participant={participants.find((candidate) => candidate.id === card.author_participant_id)}
+                phase={phase}
+                votes={votes}
+                reactions={reactions}
+                currentParticipantId={currentParticipantId}
+                voteLimit={voteLimit}
+                topVoted={phase === "vote" && maxVoteCount > 0 && card.vote_count === maxVoteCount}
+                onVoteCard={onVoteCard}
+                onReact={onReact}
+              />
+            ))}
 
           {groups.length === 0 && columnCards.length === 0 ? (
-            <div className="grid min-h-48 place-items-center rounded-[1.5rem] border border-dashed border-violet-200 bg-violet-50/45 p-5 text-center text-sm font-bold text-violet-500">
+            <div className="retro-drop-zone grid min-h-48 place-items-center rounded-[1.5rem] p-5 text-center text-sm font-bold text-[#625b84]">
               {canAddCards ? "No reflections yet" : "Drop a card here to create a group"}
             </div>
           ) : null}
@@ -198,6 +189,7 @@ function UngroupedCard({
 }) {
   const { attributes, listeners, setNodeRef: setDraggableNodeRef, isDragging } = useDraggable({ id: `card:${card.id}` });
   const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({ id: `card-drop:${card.id}` });
+  const hiddenReflection = shouldHideReflectionContent(phase, card.author_participant_id, currentParticipantId);
 
   function setNodeRef(node: HTMLElement | null) {
     setDraggableNodeRef(node);
@@ -208,39 +200,42 @@ function UngroupedCard({
     <article
       ref={setNodeRef}
       className={cn(
-        "rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_10px_24px_rgba(30,27,75,0.08)] transition",
-        topVoted && "ring-2 ring-amber-300 shadow-[0_18px_36px_rgba(245,158,11,0.2)]",
-        isOver && "ring-2 ring-violet-400 ring-offset-2 ring-offset-white",
+        "retro-card-surface rounded-2xl p-3",
+        !hiddenReflection && phase === "discuss" && "reflection-reveal",
+        topVoted && "ring-2 ring-amber-200 shadow-[0_18px_36px_-24px_rgba(180,120,40,0.32)]",
+        isOver && "ring-2 ring-[#8c83ad] ring-offset-2 ring-offset-white",
         isDragging && "opacity-35"
       )}
       {...attributes}
       {...listeners}
     >
-      <p className="text-sm font-medium leading-5 text-slate-800">{card.content}</p>
+      {hiddenReflection ? <GhostReflection /> : <p className="whitespace-pre-wrap text-sm font-medium leading-5 text-slate-800">{card.content}</p>}
       <div className="mt-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
           <span
             className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
-            style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
+            style={{ backgroundColor: hiddenReflection ? "#b9b2cf" : participant?.avatar_color ?? "#94a3b8" }}
           >
-            {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
+            {hiddenReflection ? "?" : (participant?.name ?? "?").slice(0, 1).toUpperCase()}
           </span>
-          {card.vote_count} votes
+          {hiddenReflection ? "Someone is reflecting" : `${card.vote_count} votes`}
         </div>
         {phase !== "vote" ? (
           <Ungroup className="h-3.5 w-3.5 text-slate-300" />
         ) : null}
       </div>
-      <CardVotingControls
-        card={card}
-        phase={phase}
-        votes={votes}
-        reactions={reactions}
-        currentParticipantId={currentParticipantId}
-        voteLimit={voteLimit}
-        onVoteCard={onVoteCard}
-        onReact={onReact}
-      />
+      {!hiddenReflection ? (
+        <CardVotingControls
+          card={card}
+          phase={phase}
+          votes={votes}
+          reactions={reactions}
+          currentParticipantId={currentParticipantId}
+          voteLimit={voteLimit}
+          onVoteCard={onVoteCard}
+          onReact={onReact}
+        />
+      ) : null}
     </article>
   );
 }

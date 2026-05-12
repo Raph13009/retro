@@ -37,7 +37,7 @@ export function RenameGroupModal({ group, onClose, onSave }: RenameGroupModalPro
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="w-full rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-violet-400"
+            className="w-full rounded-2xl border border-[#ded8e8] bg-[#f7f5f0] px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-[#8c83ad]"
             autoFocus
           />
         </label>
@@ -45,7 +45,7 @@ export function RenameGroupModal({ group, onClose, onSave }: RenameGroupModalPro
           <button type="button" onClick={onClose} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-extrabold text-slate-600">
             Cancel
           </button>
-          <button type="submit" disabled={!title.trim() || isSubmitting} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg disabled:opacity-60">
+          <button type="submit" disabled={!title.trim() || isSubmitting} className="rounded-2xl bg-[#343052] px-4 py-3 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)] disabled:opacity-60">
             {isSubmitting ? "Saving..." : "Save"}
           </button>
         </div>

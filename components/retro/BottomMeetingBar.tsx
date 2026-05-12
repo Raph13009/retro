@@ -15,13 +15,14 @@ type BottomMeetingBarProps = {
   onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
   onConfirmDiscuss: () => void;
+  onCloseRoom: () => void;
   sidebarCollapsed: boolean;
 };
 
 const MUSIC_TRACKS = [
   { id: "marseille", label: "Marseille", icon: "☀️", src: "/music/marseille-music.mp3", startAtSeconds: 0 },
-  { id: "casa", label: "Casa", icon: "🇲🇦", src: "/music/casa.mp3", startAtSeconds: 10 },
-  { id: "south-america", label: "South America", icon: "🌎", src: "/music/south-america.mp3", startAtSeconds: 10 }
+  { id: "casa", label: "Rabat", icon: "🇲🇦", src: "/music/casa.mp3", startAtSeconds: 10 },
+  { id: "south-america", label: "Mexico", icon: "🇲🇽", src: "/music/south-america.mp3", startAtSeconds: 10 }
 ] as const;
 
 type MusicTrack = (typeof MUSIC_TRACKS)[number];
@@ -37,16 +38,17 @@ export function BottomMeetingBar({
   onStartTimer,
   onStopTimer,
   onConfirmDiscuss,
+  onCloseRoom,
   sidebarCollapsed
 }: BottomMeetingBarProps) {
   const voteLimit = getVoteLimit(room);
 
   return (
-    <div className={cn("pointer-events-none fixed bottom-5 right-0 z-30 flex justify-center px-6 transition-[left] duration-200", sidebarCollapsed ? "left-[76px]" : "left-[260px]")}>
+    <div className={cn("pointer-events-none fixed bottom-5 right-8 z-30 flex justify-center transition-[left] duration-200", sidebarCollapsed ? "left-[108px]" : "left-[292px]")}>
       <div
         className={cn(
-          "pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-[2rem] border border-violet-200/70 bg-white/88 px-3 py-2 text-sm font-semibold text-slate-700 shadow-2xl shadow-violet-950/15 backdrop-blur-2xl",
-          sidebarCollapsed ? "max-w-[calc(100vw-120px)]" : "max-w-[calc(100vw-300px)]"
+          "pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-[2rem] border border-[#ded8e8]/80 bg-white/88 px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_24px_70px_-42px_rgba(49,46,78,0.34)] backdrop-blur-2xl",
+          sidebarCollapsed ? "max-w-[calc(100vw-160px)]" : "max-w-[calc(100vw-350px)]"
         )}
       >
         <MusicPicker />
@@ -59,12 +61,13 @@ export function BottomMeetingBar({
           onStartTimer={onStartTimer}
           onStopTimer={onStopTimer}
           onConfirmDiscuss={onConfirmDiscuss}
+          onCloseRoom={onCloseRoom}
         />
-        <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50" type="button">
-          <Lightbulb className="h-4 w-4 text-violet-500" />
+        <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-[#f1eef6]" type="button">
+          <Lightbulb className="h-4 w-4 text-[#6d668f]" />
           Tips
         </button>
-        <div className="flex items-center gap-2 rounded-full bg-violet-50 px-3 py-2 text-violet-700">
+        <div className="flex items-center gap-2 rounded-full bg-[#f1eef6] px-3 py-2 text-[#4f4974]">
           <UsersRound className="h-4 w-4" />
           {participants.length}
         </div>
@@ -175,19 +178,19 @@ function MusicPicker() {
   return (
     <div ref={containerRef} className="relative">
       <button
-        className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50", open && "bg-violet-50 text-violet-700")}
+        className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-[#f1eef6]", open && "bg-[#f1eef6] text-[#4f4974]")}
         type="button"
         onClick={() => setOpen((value) => !value)}
       >
-        <Music2 className="h-4 w-4 text-violet-500" />
+        <Music2 className="h-4 w-4 text-[#6d668f]" />
         Music
       </button>
 
       {open ? (
-        <div className="absolute bottom-full left-0 z-50 mb-3 w-72 rounded-[1.5rem] border border-violet-100 bg-white/94 p-3 text-slate-900 shadow-[0_24px_70px_rgba(30,27,75,0.22)] backdrop-blur-2xl">
+        <div className="absolute bottom-full left-0 z-50 mb-3 w-72 rounded-[1.5rem] border border-[#ded8e8] bg-white/94 p-3 text-slate-900 shadow-[0_24px_70px_-34px_rgba(49,46,78,0.28)] backdrop-blur-2xl">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Music mood</p>
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#6d668f]">Music mood</p>
               <p className="mt-1 text-sm font-extrabold text-slate-950">
                 {selectedTrack && playing ? `Now playing: ${selectedTrack.label}` : selectedTrack ? `Selected: ${selectedTrack.label}` : "Pick a vibe"}
               </p>
@@ -196,7 +199,7 @@ function MusicPicker() {
               type="button"
               onClick={togglePlayback}
               disabled={!selectedTrack}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-950 text-white shadow-lg disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#343052] text-white shadow-[0_14px_30px_-20px_rgba(52,48,82,0.58)] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               aria-label={playing ? "Pause music" : "Play music"}
             >
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -213,7 +216,7 @@ function MusicPicker() {
                   onClick={() => selectTrack(track)}
                   className={cn(
                     "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm font-extrabold transition",
-                    selected ? "bg-violet-600 text-white shadow-lg shadow-violet-300/40" : "bg-violet-50 text-slate-700 hover:bg-violet-100"
+                    selected ? "bg-[#343052] text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]" : "bg-[#f1eef6] text-slate-700 hover:bg-[#ebe8f4]"
                   )}
                 >
                   <span>
@@ -224,7 +227,7 @@ function MusicPicker() {
             })}
           </div>
 
-          {message ? <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">{message}</p> : null}
+          {message ? <p className="mt-3 rounded-2xl bg-[#f4ead7] px-3 py-2 text-xs font-bold text-[#8a6b36]">{message}</p> : null}
         </div>
       ) : null}
     </div>
@@ -239,7 +242,8 @@ function TimerPicker({
   onSaveTimerDuration,
   onStartTimer,
   onStopTimer,
-  onConfirmDiscuss
+  onConfirmDiscuss,
+  onCloseRoom
 }: {
   room: Room;
   phase: MeetingPhase;
@@ -249,6 +253,7 @@ function TimerPicker({
   onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
   onConfirmDiscuss: () => void;
+  onCloseRoom: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -279,26 +284,29 @@ function TimerPicker({
   return (
     <div ref={containerRef} className="relative flex items-center gap-2">
       <button
-        className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50", open && "bg-violet-50 text-violet-700")}
+        className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-[#f1eef6] disabled:cursor-not-allowed disabled:opacity-50", open && "bg-[#f1eef6] text-[#4f4974]")}
         type="button"
         onClick={() => setOpen((value) => !value)}
         disabled={!isCreator}
       >
-        <Timer className="h-4 w-4 text-violet-500" />
+        <Timer className="h-4 w-4 text-[#6d668f]" />
         Timer {timerLabel}
       </button>
 
       {isCreator ? (
         room.timer_status === "running" ? (
-          <button type="button" onClick={onStopTimer} className="flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-white shadow-lg shadow-rose-300/40">
+          <button type="button" onClick={onStopTimer} className="flex items-center gap-2 rounded-full bg-[#c05f5f] px-4 py-2 text-white shadow-[0_14px_30px_-22px_rgba(192,95,95,0.54)]">
             <Square className="h-3.5 w-3.5 fill-current" />
             Stop
           </button>
         ) : room.timer_status === "ended" ? (
           phase === "discuss" ? (
-            <span className="rounded-full bg-slate-100 px-4 py-2 text-slate-500">Timer ended</span>
+            <button type="button" onClick={onCloseRoom} className="flex items-center gap-2 rounded-full bg-[#c05f5f] px-4 py-2 text-white shadow-[0_14px_30px_-22px_rgba(192,95,95,0.54)]">
+              <Square className="h-3.5 w-3.5 fill-current" />
+              End retro
+            </button>
           ) : (
-            <button type="button" onClick={onConfirmDiscuss} className="rounded-full bg-violet-600 px-4 py-2 text-white shadow-lg shadow-violet-300/40">
+            <button type="button" onClick={onConfirmDiscuss} className="rounded-full bg-[#343052] px-4 py-2 text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]">
               Discuss
             </button>
           )
@@ -308,18 +316,18 @@ function TimerPicker({
             onClick={() => {
               void onStartTimer(room.timer_duration_seconds);
             }}
-            className="flex items-center gap-2 rounded-full bg-slate-950 px-5 py-2.5 text-white shadow-lg shadow-slate-400/30"
+            className="flex items-center gap-2 rounded-full bg-[#343052] px-5 py-2.5 text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)] transition hover:bg-[#2b2748]"
           >
-            <Play className="h-4 w-4 text-violet-200" />
+            <Play className="h-4 w-4 text-[#d8d2e7]" />
             {startLabel}
           </button>
         )
       ) : null}
 
       {open ? (
-        <div className="absolute bottom-full left-0 z-50 mb-3 w-72 rounded-[1.5rem] border border-violet-100 bg-white/94 p-3 text-slate-900 shadow-[0_24px_70px_rgba(30,27,75,0.22)] backdrop-blur-2xl">
+        <div className="absolute bottom-full left-0 z-50 mb-3 w-72 rounded-[1.5rem] border border-[#ded8e8] bg-white/94 p-3 text-slate-900 shadow-[0_24px_70px_-34px_rgba(49,46,78,0.28)] backdrop-blur-2xl">
           <div className="mb-3">
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Timer setup</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#6d668f]">Timer setup</p>
             <p className="mt-1 text-sm font-extrabold text-slate-950">Set the writing timer</p>
           </div>
 
@@ -331,7 +339,7 @@ function TimerPicker({
               max={60}
               value={draftMinutes}
               onChange={(event) => setDraftMinutes(Math.max(1, Math.min(60, Number(event.target.value) || 5)))}
-              className="w-full rounded-2xl border border-violet-100 bg-violet-50 px-3 py-2.5 text-sm font-extrabold text-slate-950 outline-none focus:border-violet-400"
+              className="w-full rounded-2xl border border-[#ded8e8] bg-[#f7f5f0] px-3 py-2.5 text-sm font-extrabold text-slate-950 outline-none focus:border-[#8c83ad]"
             />
           </label>
 
@@ -341,7 +349,7 @@ function TimerPicker({
               void saveTimerDuration();
             }}
             disabled={isSaving}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#343052] px-4 py-3 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)] disabled:opacity-60"
           >
             {isSaving ? "Saving..." : "Save"}
           </button>
@@ -378,7 +386,7 @@ function VoteSettingsControl({
             setEditing(true);
           }
         }}
-        className="rounded-full bg-violet-50 px-3 py-2 text-sm font-extrabold text-violet-800 disabled:cursor-default"
+        className="rounded-full bg-[#f1eef6] px-3 py-2 text-sm font-extrabold text-[#4f4974] disabled:cursor-default"
         disabled={!isCreator}
       >
         Votes per person: {voteLimit}
@@ -387,14 +395,14 @@ function VoteSettingsControl({
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-full bg-violet-50 px-3 py-2 text-violet-800">
+    <div className="flex items-center gap-2 rounded-full bg-[#f1eef6] px-3 py-2 text-[#4f4974]">
       <input
         type="number"
         min={0}
         max={20}
         value={draftLimit}
         onChange={(event) => setDraftLimit(Math.max(0, Math.min(20, Number(event.target.value) || 0)))}
-        className="h-7 w-12 rounded-full border border-violet-200 bg-white px-2 text-center text-sm font-extrabold outline-none focus:border-violet-500"
+        className="h-7 w-12 rounded-full border border-[#d6d1e2] bg-white px-2 text-center text-sm font-extrabold outline-none focus:border-[#8c83ad]"
         aria-label="Votes per person"
       />
       <button
@@ -403,7 +411,7 @@ function VoteSettingsControl({
           void onVoteLimitChange(draftLimit);
           setEditing(false);
         }}
-        className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-extrabold text-white"
+        className="rounded-full bg-[#343052] px-3 py-1.5 text-xs font-extrabold text-white"
       >
         Save
       </button>

@@ -15,7 +15,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Retro",
-  description: "A realtime retrospective meeting board for agile teams."
+  description: "A realtime retrospective meeting board for agile teams.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.png", type: "image/png" }
+    ],
+    apple: "/apple-touch-icon.png"
+  }
 };
 
 export default function RootLayout({

@@ -30,14 +30,14 @@ export function TimerControls({
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Timer</p>
-          <p className={`mt-1 text-3xl font-semibold tabular-nums ${ended ? "text-red-300" : "text-white"}`}>
+          <p className={`mt-1 text-3xl font-semibold tabular-nums ${ended ? "text-[#b55252]" : "text-neutral-950"}`}>
             {formatTime(displaySeconds)}
           </p>
         </div>
         {ended ? (
-          <div className="rounded-full bg-red-400/15 px-3 py-1 text-xs font-medium text-red-200">Time is up</div>
+          <div className="rounded-full bg-[#f8eeee] px-3 py-1 text-xs font-medium text-[#b55252]">Time is up</div>
         ) : (
-          <div className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium capitalize text-slate-300">
+          <div className="rounded-full bg-[#f1eef6] px-3 py-1 text-xs font-medium capitalize text-[#4f4974]">
             {room.timer_status}
           </div>
         )}
@@ -48,7 +48,7 @@ export function TimerControls({
           <select
             value={room.timer_duration_seconds}
             onChange={(event) => onDurationChange(Number(event.target.value))}
-            className="dark-field rounded-xl px-3 py-2 text-sm outline-none focus:border-cyan-200/50"
+            className="dark-field rounded-xl px-3 py-2 text-sm outline-none focus:border-[#8c83ad]"
             disabled={room.timer_status === "running"}
           >
             <option value={180}>3 min</option>

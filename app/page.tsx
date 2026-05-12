@@ -87,19 +87,19 @@ export default function HomePage() {
   }
 
   return (
-    <main className="relative h-dvh overflow-hidden px-6 py-10 text-slate-100">
+    <main className="relative h-dvh overflow-hidden px-6 py-10 text-neutral-950">
       <ImageTrail items={homeTrailImages} variant={5} />
       <section className="relative mx-auto flex h-full max-w-6xl items-center">
         <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-sm text-slate-300 shadow-sm backdrop-blur-xl">
-              <Sparkles className="h-4 w-4 text-cyan-200" />
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#ded8e8]/80 bg-white/60 px-3 py-1 text-sm text-slate-600 shadow-sm backdrop-blur-xl">
+              <Sparkles className="h-4 w-4 text-[#5a5389]" />
               Built between two Partner Squad tickets
             </div>
-            <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-white md:text-7xl">
+            <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-neutral-950 md:text-7xl">
               Finally a decent retro tool
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
               Create rooms, group cards, vote together and actually move forward.
             </p>
             <Link
@@ -114,12 +114,12 @@ export default function HomePage() {
           <div className="liquid-panel rounded-[2rem] p-6">
             <div>
               <div className="mb-6">
-                <h2 className="text-2xl font-semibold tracking-tight text-white">Create a retro room</h2>
-                <p className="mt-2 text-sm text-slate-400">You will get a shareable room link instantly.</p>
+                <h2 className="text-2xl font-semibold tracking-tight text-neutral-950">Create a retro room</h2>
+                <p className="mt-2 text-sm text-slate-500">You will get a shareable room link instantly.</p>
               </div>
 
               {!hasSupabaseEnv ? (
-                <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <div className="mb-4 rounded-2xl border border-[#e6d6b8] bg-[#f6eddd] p-4 text-sm text-[#7d6336]">
                   Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `.env.local`,
                   then restart the dev server.
                 </div>
@@ -127,16 +127,16 @@ export default function HomePage() {
 
               <form className="space-y-4" onSubmit={createRoom}>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-300">Retro name</span>
+                  <span className="mb-2 block text-sm font-medium text-slate-600">Retro name</span>
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     placeholder="Sprint 24 retrospective"
-                    className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-cyan-200/50"
+                    className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-[#8c83ad]"
                   />
                 </label>
 
-                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                {error ? <p className="text-sm text-[#b55252]">{error}</p> : null}
 
                 <button
                   type="submit"

@@ -1,5 +1,6 @@
 import { Clipboard, Download, Square, X } from "lucide-react";
 import type { ActionItem, CardComment, CardGroup, Participant, Reaction, RetroCard, RetroColumn, Room } from "@/lib/retro/types";
+import { isTrollGroup } from "@/lib/retro/troll";
 
 type ExportSummaryModalProps = {
   open: boolean;
@@ -32,7 +33,13 @@ export function ExportSummaryModal({
     return null;
   }
 
-  const orderedActionItems = [...actionItems].sort((first, second) => first.position - second.position || first.created_at.localeCompare(second.created_at));
+  const trollGroupIds = new Set(cardGroups.filter(isTrollGroup).map((group) => group.id));
+  const orderedActionItems = [...actionItems]
+    .filter((item) => {
+      const sourceCard = item.card_id ? cards.find((card) => card.id === item.card_id) : null;
+      return !sourceCard?.group_id || !trollGroupIds.has(sourceCard.group_id);
+    })
+    .sort((first, second) => first.position - second.position || first.created_at.localeCompare(second.created_at));
   const markdown = buildMarkdownSummary({ room, participants, columns, cardGroups, cards, comments, reactions, actionItems: orderedActionItems });
 
   async function copyMarkdown() {
@@ -49,18 +56,18 @@ export function ExportSummaryModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-black/45 p-4 backdrop-blur-md">
-      <section className="w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/70 bg-white text-slate-950 shadow-[0_28px_90px_rgba(30,27,75,0.28)]">
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
+    <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/30 p-4 backdrop-blur-md">
+      <section className="w-full max-w-4xl overflow-hidden rounded-[2rem] border border-[#ded8e8]/80 bg-white text-slate-950 shadow-[0_28px_90px_-42px_rgba(49,46,78,0.42)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#ded8e8] p-5">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-violet-500">Final export</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#6d668f]">Final export</p>
             <h2 className="mt-1 text-2xl font-extrabold tracking-[-0.04em] text-slate-950">End retro and export actions?</h2>
             <p className="mt-2 text-sm font-semibold text-slate-500">Copy the final action items before closing the room.</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-violet-50"
+            className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-[#f1eef6]"
             aria-label="Close summary"
           >
             <X className="h-4 w-4" />
@@ -68,10 +75,10 @@ export function ExportSummaryModal({
         </div>
 
         <div className="grid max-h-[62vh] min-h-0 gap-0 overflow-hidden lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="scroll-stable min-h-0 overflow-y-auto border-r border-violet-100 bg-violet-50/50 p-5">
-            <h3 className="text-sm font-extrabold uppercase tracking-[0.16em] text-violet-500">Actions</h3>
+          <div className="scroll-stable min-h-0 overflow-y-auto border-r border-[#ded8e8] bg-[#f7f5f0] p-5">
+            <h3 className="text-sm font-extrabold uppercase tracking-[0.16em] text-[#6d668f]">Actions</h3>
             {orderedActionItems.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-dashed border-violet-200 bg-white/70 p-5 text-sm font-semibold text-slate-500">
+              <div className="mt-4 rounded-2xl border border-dashed border-[#d6d1e2] bg-white/70 p-5 text-sm font-semibold text-slate-500">
                 No action items were created.
               </div>
             ) : (
@@ -98,11 +105,11 @@ export function ExportSummaryModal({
           </pre>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-3 border-t border-violet-100 bg-white p-5">
+        <div className="flex flex-wrap justify-end gap-3 border-t border-[#ded8e8] bg-white p-5">
           <button
             type="button"
             onClick={copyMarkdown}
-            className="inline-flex items-center gap-2 rounded-2xl bg-violet-100 px-4 py-2 text-sm font-extrabold text-violet-700"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#ebe8f4] px-4 py-2 text-sm font-extrabold text-[#4f4974]"
           >
             <Clipboard className="h-4 w-4" />
             Copy Markdown
@@ -118,7 +125,7 @@ export function ExportSummaryModal({
           <button
             type="button"
             onClick={onFinish}
-            className="inline-flex items-center gap-2 rounded-2xl bg-rose-500 px-4 py-2 text-sm font-extrabold text-white shadow-lg shadow-rose-300/40"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#c05f5f] px-4 py-2 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(192,95,95,0.54)]"
           >
             <Square className="h-3.5 w-3.5 fill-current" />
             End retro
@@ -154,7 +161,7 @@ function ActionExportCard({
   const sourceLabel = sourceCard ? sourceDescription(sourceCard, columns, cardGroups) : "No source card";
 
   return (
-    <article className="rounded-[1.4rem] border border-violet-100 bg-white p-4 shadow-sm">
+    <article className="rounded-[1.4rem] border border-[#ded8e8] bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <h4 className="text-sm font-extrabold leading-5 text-slate-950">
           {index + 1}. {item.title}

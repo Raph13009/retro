@@ -13,13 +13,13 @@ export function ActionItemsPanel({ actionItems, participants, onToggleStatus, on
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Action items</p>
-          <h3 className="mt-1 text-lg font-semibold text-white">{actionItems.length} follow-ups</h3>
+          <h3 className="mt-1 text-lg font-semibold text-neutral-950">{actionItems.length} follow-ups</h3>
         </div>
       </div>
 
       <div className="scroll-stable mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {actionItems.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
+          <p className="rounded-xl border border-dashed border-[#ded8e8] bg-white/48 p-4 text-sm text-slate-500">
             Convert a card into an action item to build the final summary.
           </p>
         ) : (

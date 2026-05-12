@@ -77,22 +77,22 @@ export function OngoingRetrosSection() {
     <section className="relative mx-auto w-full max-w-6xl px-0 pb-14">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-white/8 px-3 py-1 text-sm font-semibold text-violet-100 backdrop-blur-xl">
-            <Radio className="h-4 w-4 text-violet-200" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#ded8e8]/80 bg-white/60 px-3 py-1 text-sm font-semibold text-slate-600 backdrop-blur-xl">
+            <Radio className="h-4 w-4 text-[#6d668f]" />
             Live activity
           </div>
-          <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white">Ongoing retros</h2>
-          <p className="mt-2 text-sm text-slate-300">Join rooms waiting to start or already live.</p>
+          <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-neutral-950">Ongoing retros</h2>
+          <p className="mt-2 text-sm text-slate-600">Join rooms waiting to start or already live.</p>
         </div>
         {isLoading ? <p className="text-sm font-medium text-slate-400">Refreshing rooms...</p> : null}
       </div>
 
       {!hasSupabaseEnv ? (
-        <div className="liquid-surface rounded-[1.75rem] p-5 text-sm font-medium text-slate-300">
+        <div className="liquid-surface rounded-[1.75rem] p-5 text-sm font-medium text-slate-600">
           Add Supabase env vars to see rooms.
         </div>
       ) : rooms.length === 0 ? (
-        <div className="liquid-surface rounded-[1.75rem] border border-white/10 p-6 text-sm font-semibold text-slate-300">
+        <div className="liquid-surface rounded-[1.75rem] p-6 text-sm font-semibold text-slate-600">
           No squads are currently suffering in retro meetings.
         </div>
       ) : (
@@ -119,39 +119,39 @@ function ActiveRetroCard({ room }: { room: DiscoverableRoom }) {
     <Link
       href={`/room/${room.slug}`}
       className={cn(
-        "group relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/10 p-4",
-        "shadow-[0_22px_70px_rgba(88,80,132,0.18)] backdrop-blur-2xl transition",
-        "hover:-translate-y-0.5 hover:border-violet-200/40 hover:bg-white/14 hover:shadow-violet-500/20"
+        "group relative overflow-hidden rounded-[1.75rem] border border-[#ded8e8]/80 bg-white/68 p-4",
+        "shadow-[0_22px_70px_-44px_rgba(49,46,78,0.32)] backdrop-blur-2xl transition",
+        "hover:-translate-y-0.5 hover:border-[#c9c2d7] hover:bg-white/82"
       )}
     >
       <div
         className={cn(
           "absolute right-4 top-4 h-2.5 w-2.5 rounded-full",
-          waiting ? "bg-amber-300 shadow-[0_0_18px_rgba(252,211,77,0.9)]" : "bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.95)]"
+          waiting ? "bg-[#d4ae63]" : "bg-[#76a681]"
         )}
       />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="truncate text-lg font-semibold tracking-[-0.03em] text-white">{room.name}</p>
+          <p className="truncate text-lg font-semibold tracking-[-0.03em] text-neutral-950">{room.name}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-violet-100/90 px-2.5 py-1 text-xs font-extrabold text-violet-800">
+            <span className="rounded-full bg-[#ebe8f4] px-2.5 py-1 text-xs font-extrabold text-[#4f4974]">
               {phaseLabel(currentPhase)}
             </span>
             <span
               className={cn(
                 "rounded-full px-2.5 py-1 text-xs font-extrabold",
-                waiting ? "bg-amber-100/90 text-amber-800" : "bg-emerald-100/90 text-emerald-800"
+                waiting ? "bg-[#f4ead7] text-[#8a6b36]" : "bg-[#dfece2] text-[#557b5e]"
               )}
             >
               {waiting ? "Waiting" : "Live"}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-slate-200">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-1 text-xs font-bold text-slate-600">
               <Clock3 className="h-3.5 w-3.5" />
               {timerLabel}
             </span>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-black/20 px-2.5 py-1 text-xs font-bold text-slate-200">
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#f1eef6] px-2.5 py-1 text-xs font-bold text-[#4f4974]">
           <UsersRound className="h-3.5 w-3.5" />
           {room.participants.length}
         </span>
@@ -159,7 +159,7 @@ function ActiveRetroCard({ room }: { room: DiscoverableRoom }) {
 
       <div className="mt-5 flex items-center justify-between gap-3">
         <ParticipantAvatarsMini participants={room.participants} />
-        <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-extrabold text-slate-950 shadow-lg shadow-violet-950/15 transition group-hover:gap-3">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#343052] px-3 py-2 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)] transition group-hover:gap-3">
           Join
           <ArrowRight className="h-4 w-4" />
         </span>

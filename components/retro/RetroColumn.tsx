@@ -88,14 +88,14 @@ export function RetroColumn({
       ref={setNodeRef}
       className={cn(
         "liquid-panel flex h-full min-h-[34rem] w-[21rem] shrink-0 flex-col rounded-[1.5rem] p-3",
-        isOver && "border-cyan-200/40 bg-cyan-300/10"
+        isOver && "border-[#8c83ad] bg-white"
       )}
     >
       <div className="flex items-center justify-between gap-2 px-1 py-2">
         <button
           type="button"
           onClick={() => (isCreator ? onRenameColumn(column) : undefined)}
-          className={cn("text-left text-base font-semibold text-white", isCreator && "hover:text-cyan-100")}
+          className={cn("text-left text-base font-semibold text-neutral-950", isCreator && "hover:text-[#4f4974]")}
         >
           {column.title}
         </button>
@@ -106,7 +106,7 @@ export function RetroColumn({
                 type="button"
                 onClick={() => onMoveColumn(column, -1)}
                 disabled={!canMoveLeft}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-[#f1eef6] hover:text-[#4f4974] disabled:opacity-30"
                 aria-label="Move column left"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -115,7 +115,7 @@ export function RetroColumn({
                 type="button"
                 onClick={() => onMoveColumn(column, 1)}
                 disabled={!canMoveRight}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-[#f1eef6] hover:text-[#4f4974] disabled:opacity-30"
                 aria-label="Move column right"
               >
                 <ArrowRight className="h-4 w-4" />
@@ -123,14 +123,14 @@ export function RetroColumn({
               <button
                 type="button"
                 onClick={() => onDeleteColumn(column)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-red-400/10 hover:text-red-200"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-[#f8eeee] hover:text-[#b55252]"
                 aria-label="Delete column"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             </>
           ) : null}
-          <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-medium text-slate-300">{cards.length}</span>
+          <span className="rounded-full bg-[#f1eef6] px-2 py-1 text-xs font-medium text-[#4f4974]">{cards.length}</span>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ export function RetroColumn({
           onChange={(event) => setContent(event.target.value)}
           placeholder="Add a thought..."
           rows={3}
-          className="w-full resize-none rounded-xl border-0 bg-transparent px-2 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+          className="w-full resize-none rounded-xl border-0 bg-transparent px-2 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"
         />
         <button
           type="submit"
@@ -154,7 +154,7 @@ export function RetroColumn({
 
       <div className="scroll-stable flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
         {cards.length === 0 ? (
-          <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-6 text-center text-sm text-slate-500">
+          <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-[#ded8e8] bg-white/48 p-6 text-center text-sm text-slate-500">
             No cards yet
           </div>
         ) : (

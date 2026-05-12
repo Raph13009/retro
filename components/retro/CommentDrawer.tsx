@@ -33,12 +33,12 @@ export function CommentDrawer({ card, comments, participants, onClose, onAddComm
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/45 backdrop-blur-md">
-      <aside className="liquid-panel h-full w-full max-w-md overflow-y-auto border-l border-white/10 p-5 shadow-2xl">
+    <div className="fixed inset-0 z-40 flex justify-end bg-slate-950/30 backdrop-blur-md">
+      <aside className="liquid-panel h-full w-full max-w-md overflow-y-auto border-l border-[#ded8e8] p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Comments</p>
-            <h2 className="mt-2 text-lg font-semibold text-white">Discuss this card</h2>
+            <h2 className="mt-2 text-lg font-semibold text-neutral-950">Discuss this card</h2>
           </div>
           <button
             type="button"
@@ -56,7 +56,7 @@ export function CommentDrawer({ card, comments, participants, onClose, onAddComm
 
         <div className="mt-5 space-y-3">
           {cardComments.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
+            <p className="rounded-2xl border border-dashed border-[#ded8e8] bg-white/48 p-4 text-sm text-slate-500">
               No comments yet.
             </p>
           ) : (
@@ -74,7 +74,7 @@ export function CommentDrawer({ card, comments, participants, onClose, onAddComm
                     </span>
                     <span>{author?.name ?? "Unknown"}</span>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-slate-100">{comment.content}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{comment.content}</p>
                 </div>
               );
             })
@@ -87,7 +87,7 @@ export function CommentDrawer({ card, comments, participants, onClose, onAddComm
             onChange={(event) => setContent(event.target.value)}
             placeholder="Add a comment..."
             rows={3}
-            className="dark-field w-full resize-none rounded-xl px-3 py-2 text-sm outline-none focus:border-cyan-200/50"
+            className="dark-field w-full resize-none rounded-xl px-3 py-2 text-sm outline-none focus:border-[#8c83ad]"
           />
           <button
             type="submit"

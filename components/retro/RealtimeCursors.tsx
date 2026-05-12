@@ -18,13 +18,13 @@ type RealtimeCursorsProps = {
   room: Room;
   participant: Participant;
   onlineParticipants: PresenceParticipant[];
-  boardRef: RefObject<HTMLDivElement | null>;
+  containerRef: RefObject<HTMLElement | null>;
 };
 
 const CURSOR_THROTTLE_MS = 75;
 const CURSOR_STALE_MS = 4000;
 
-export function RealtimeCursors({ room, participant, onlineParticipants, boardRef }: RealtimeCursorsProps) {
+export function RealtimeCursors({ room, participant, onlineParticipants, containerRef }: RealtimeCursorsProps) {
   const [cursors, setCursors] = useState<Record<string, CursorPayload>>({});
   const lastSentAtRef = useRef(0);
   const latestPayloadRef = useRef<CursorPayload | null>(null);
@@ -92,12 +92,12 @@ export function RealtimeCursors({ room, participant, onlineParticipants, boardRe
     }
 
     function handlePointerMove(event: PointerEvent) {
-      const board = boardRef.current;
-      if (!board) {
+      const container = containerRef.current;
+      if (!container) {
         return;
       }
 
-      const rect = board.getBoundingClientRect();
+      const rect = container.getBoundingClientRect();
       const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
       const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
 
@@ -111,9 +111,9 @@ export function RealtimeCursors({ room, participant, onlineParticipants, boardRe
       });
     }
 
-    const board = boardRef.current;
-    board?.addEventListener("pointermove", handlePointerMove);
-    board?.addEventListener("pointerleave", broadcastLeave);
+    const container = containerRef.current;
+    container?.addEventListener("pointermove", handlePointerMove);
+    container?.addEventListener("pointerleave", broadcastLeave);
 
     channel
       .on("broadcast", { event: "cursor" }, ({ payload }) => {
@@ -159,12 +159,12 @@ export function RealtimeCursors({ room, participant, onlineParticipants, boardRe
 
       broadcastLeave();
       window.clearInterval(staleInterval);
-      board?.removeEventListener("pointermove", handlePointerMove);
-      board?.removeEventListener("pointerleave", broadcastLeave);
+      container?.removeEventListener("pointermove", handlePointerMove);
+      container?.removeEventListener("pointerleave", broadcastLeave);
       void client.removeChannel(channel);
       setCursors({});
     };
-  }, [boardRef, participant.avatar_color, participant.id, participant.name, room.id]);
+  }, [containerRef, participant.avatar_color, participant.id, participant.name, room.id]);
 
   useEffect(() => {
     const onlineIds = new Set(onlineParticipants.map((onlineParticipant) => onlineParticipant.participant_id));
