@@ -1,6 +1,6 @@
-import { Lightbulb, Music2, Square, Timer, UsersRound } from "lucide-react";
-import type { MeetingPhase, Participant, Room } from "@/lib/retro/types";
-import { MEETING_PHASES, phaseLabel } from "@/lib/retro/types";
+import { Lightbulb, Music2, Square, Timer, UsersRound, Vote as VoteIcon } from "lucide-react";
+import type { MeetingPhase, Participant, Room, Vote } from "@/lib/retro/types";
+import { getVoteLimit, MEETING_PHASES, phaseLabel } from "@/lib/retro/types";
 import { formatTime } from "@/lib/utils";
 
 type BottomMeetingBarProps = {
@@ -8,8 +8,11 @@ type BottomMeetingBarProps = {
   phase: MeetingPhase;
   participants: Participant[];
   remainingSeconds: number;
+  votes: Vote[];
+  currentParticipantId: string;
   isCreator: boolean;
   onPhaseChange: (phase: MeetingPhase) => void;
+  onVoteLimitChange: (limit: number) => void;
   onEndMeeting: () => void;
 };
 
@@ -18,12 +21,17 @@ export function BottomMeetingBar({
   phase,
   participants,
   remainingSeconds,
+  votes,
+  currentParticipantId,
   isCreator,
   onPhaseChange,
+  onVoteLimitChange,
   onEndMeeting
 }: BottomMeetingBarProps) {
   const currentIndex = MEETING_PHASES.indexOf(phase);
   const nextPhase = MEETING_PHASES[currentIndex + 1];
+  const voteLimit = getVoteLimit(room);
+  const usedVotes = votes.filter((vote) => vote.participant_id === currentParticipantId).length;
 
   return (
     <div className="pointer-events-none fixed bottom-5 left-[260px] right-0 z-30 flex justify-center px-6">
@@ -44,6 +52,24 @@ export function BottomMeetingBar({
           <UsersRound className="h-4 w-4" />
           {participants.length}/{participants.length} Ready
         </div>
+        <div className="flex items-center gap-2 rounded-full bg-slate-950 px-3 py-2 text-white">
+          <VoteIcon className="h-4 w-4 text-violet-200" />
+          Votes: {usedVotes} / {voteLimit} used
+        </div>
+        {isCreator ? (
+          <label className="flex items-center gap-2 rounded-full bg-violet-50 px-3 py-2 text-violet-800">
+            <span className="text-xs font-extrabold uppercase tracking-[0.12em]">Facilitator</span>
+            <input
+              type="number"
+              min={0}
+              max={20}
+              value={voteLimit}
+              onChange={(event) => onVoteLimitChange(Number(event.target.value))}
+              className="h-7 w-12 rounded-full border border-violet-200 bg-white px-2 text-center text-sm font-extrabold outline-none focus:border-violet-500"
+              aria-label="Votes per participant"
+            />
+          </label>
+        ) : null}
         {isCreator && nextPhase ? (
           <button
             type="button"

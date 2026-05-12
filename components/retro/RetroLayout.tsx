@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { MeetingPhase, Participant, PresenceParticipant, Room } from "@/lib/retro/types";
+import type { MeetingPhase, Participant, PresenceParticipant, Room, Vote } from "@/lib/retro/types";
 import { BottomMeetingBar } from "@/components/retro/BottomMeetingBar";
 import { PhaseHeader } from "@/components/retro/PhaseHeader";
 import { RetroSidebar } from "@/components/retro/RetroSidebar";
@@ -12,7 +12,10 @@ type RetroLayoutProps = {
   phase: MeetingPhase;
   isCreator: boolean;
   remainingSeconds: number;
+  votes: Vote[];
+  currentParticipantId: string;
   onPhaseChange: (phase: MeetingPhase) => void;
+  onVoteLimitChange: (limit: number) => void;
   onEndMeeting: () => void;
   children: ReactNode;
 };
@@ -25,7 +28,10 @@ export function RetroLayout({
   phase,
   isCreator,
   remainingSeconds,
+  votes,
+  currentParticipantId,
   onPhaseChange,
+  onVoteLimitChange,
   onEndMeeting,
   children
 }: RetroLayoutProps) {
@@ -47,8 +53,11 @@ export function RetroLayout({
         phase={phase}
         participants={participants}
         remainingSeconds={remainingSeconds}
+        votes={votes}
+        currentParticipantId={currentParticipantId}
         isCreator={isCreator}
         onPhaseChange={onPhaseChange}
+        onVoteLimitChange={onVoteLimitChange}
         onEndMeeting={onEndMeeting}
       />
     </main>

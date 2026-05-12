@@ -1,4 +1,5 @@
 import type { Room, Vote } from "@/lib/retro/types";
+import { getVoteLimit } from "@/lib/retro/types";
 
 type VotingPanelProps = {
   room: Room;
@@ -19,8 +20,9 @@ export function VotingPanel({
   onFinishVoting,
   onVoteLimitChange
 }: VotingPanelProps) {
+  const voteLimit = getVoteLimit(room);
   const usedVotes = votes.filter((vote) => vote.participant_id === participantId).length;
-  const remainingVotes = Math.max(0, room.vote_limit - usedVotes);
+  const remainingVotes = Math.max(0, voteLimit - usedVotes);
 
   return (
     <div className="liquid-panel h-full rounded-2xl p-4">
@@ -43,7 +45,7 @@ export function VotingPanel({
               type="number"
               min={0}
               max={20}
-              value={room.vote_limit}
+              value={voteLimit}
               onChange={(event) => onVoteLimitChange(Number(event.target.value))}
               className="dark-field w-16 rounded-xl px-3 py-2 text-sm outline-none focus:border-cyan-200/50"
             />

@@ -1,9 +1,9 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, Plus, Ungroup } from "lucide-react";
+import { CardVotingControls } from "@/components/retro/CardVotingControls";
 import { CardGroup } from "@/components/retro/CardGroup";
-import type { CardGroup as CardGroupType, MeetingPhase, Participant, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
+import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
 type GroupColumnProps = {
@@ -13,13 +13,17 @@ type GroupColumnProps = {
   cards: RetroCard[];
   participants: Participant[];
   votes: Vote[];
+  reactions: Reaction[];
   currentParticipantId: string;
+  voteLimit: number;
+  maxVoteCount: number;
   onAddCard: (columnId: string, content: string) => Promise<boolean>;
   onCreateGroup: (columnId: string) => void;
   onRenameGroup: (group: CardGroupType) => void;
   onDeleteGroup: (group: CardGroupType) => void;
   onUngroupCard: (card: RetroCard) => void;
   onVoteCard: (card: RetroCard) => void;
+  onReact: (card: RetroCard, emoji: string) => void;
 };
 
 const DOT_COLORS = ["bg-rose-400", "bg-amber-400", "bg-emerald-400", "bg-sky-400", "bg-violet-400"];
@@ -31,13 +35,17 @@ export function GroupColumn({
   cards,
   participants,
   votes,
+  reactions,
   currentParticipantId,
+  voteLimit,
+  maxVoteCount,
   onAddCard,
   onCreateGroup,
   onRenameGroup,
   onDeleteGroup,
   onUngroupCard,
-  onVoteCard
+  onVoteCard,
+  onReact
 }: GroupColumnProps) {
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,12 +129,16 @@ export function GroupColumn({
               cards={cards.filter((card) => card.group_id === group.id)}
               participants={participants}
               votes={votes}
+              reactions={reactions}
               phase={phase}
               currentParticipantId={currentParticipantId}
+              voteLimit={voteLimit}
+              maxVoteCount={maxVoteCount}
               onRenameGroup={onRenameGroup}
               onDeleteGroup={onDeleteGroup}
               onUngroupCard={onUngroupCard}
               onVoteCard={onVoteCard}
+              onReact={onReact}
             />
           ))}
 
@@ -145,8 +157,13 @@ export function GroupColumn({
                       card={card}
                       participant={participants.find((candidate) => candidate.id === card.author_participant_id)}
                       phase={phase}
-                      voted={votes.some((vote) => vote.card_id === card.id && vote.participant_id === currentParticipantId)}
+                      votes={votes}
+                      reactions={reactions}
+                      currentParticipantId={currentParticipantId}
+                      voteLimit={voteLimit}
+                      topVoted={phase === "vote" && maxVoteCount > 0 && card.vote_count === maxVoteCount}
                       onVoteCard={onVoteCard}
+                      onReact={onReact}
                     />
                   ))}
               </div>
@@ -168,22 +185,42 @@ function UngroupedCard({
   card,
   participant,
   phase,
-  voted,
-  onVoteCard
+  votes,
+  reactions,
+  currentParticipantId,
+  voteLimit,
+  topVoted,
+  onVoteCard,
+  onReact
 }: {
   card: RetroCard;
   participant?: Participant;
   phase: MeetingPhase;
-  voted: boolean;
+  votes: Vote[];
+  reactions: Reaction[];
+  currentParticipantId: string;
+  voteLimit: number;
+  topVoted: boolean;
   onVoteCard: (card: RetroCard) => void;
+  onReact: (card: RetroCard, emoji: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `card:${card.id}` });
+  const { attributes, listeners, setNodeRef: setDraggableNodeRef, isDragging } = useDraggable({ id: `card:${card.id}` });
+  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({ id: `card-drop:${card.id}` });
+
+  function setNodeRef(node: HTMLElement | null) {
+    setDraggableNodeRef(node);
+    setDroppableNodeRef(node);
+  }
 
   return (
     <article
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
-      className={cn("rounded-2xl bg-white p-3 shadow-md", isDragging && "opacity-70")}
+      className={cn(
+        "rounded-2xl bg-white p-3 shadow-md transition",
+        topVoted && "ring-2 ring-amber-300 shadow-[0_18px_36px_rgba(245,158,11,0.2)]",
+        isOver && "ring-2 ring-violet-400 ring-offset-2 ring-offset-[#e6e0f6]",
+        isDragging && "opacity-35"
+      )}
       {...attributes}
       {...listeners}
     >
@@ -198,21 +235,20 @@ function UngroupedCard({
           </span>
           {card.vote_count} votes
         </div>
-        {phase === "vote" ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onVoteCard(card);
-            }}
-            className={cn("rounded-full px-2 py-1 text-xs font-bold", voted ? "bg-violet-600 text-white" : "bg-violet-50 text-violet-700")}
-          >
-            Vote
-          </button>
-        ) : (
+        {phase !== "vote" ? (
           <Ungroup className="h-3.5 w-3.5 text-slate-300" />
-        )}
+        ) : null}
       </div>
+      <CardVotingControls
+        card={card}
+        phase={phase}
+        votes={votes}
+        reactions={reactions}
+        currentParticipantId={currentParticipantId}
+        voteLimit={voteLimit}
+        onVoteCard={onVoteCard}
+        onReact={onReact}
+      />
     </article>
   );
 }

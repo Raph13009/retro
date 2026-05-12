@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
-import { ArrowRight, Clipboard, Loader2, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import { Loader2, Sparkles } from "lucide-react";
 import { ImageTrail } from "@/components/retro/ImageTrail";
+import { OngoingRetrosSection } from "@/components/retro/OngoingRetrosSection";
 import { DEFAULT_COLUMNS } from "@/lib/retro/types";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 import { cn, randomRoomSlug } from "@/lib/utils";
@@ -23,19 +24,10 @@ const homeTrailImages = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const [name, setName] = useState("");
-  const [roomLink, setRoomLink] = useState("");
-  const [creatorLink, setCreatorLink] = useState("");
   const [error, setError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-
-  const origin = useMemo(() => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-
-    return window.location.origin;
-  }, []);
 
   async function createRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,6 +53,8 @@ export default function HomePage() {
         .insert({
           name: trimmedName,
           slug,
+          vote_limit: 3,
+          vote_limit_per_participant: 3,
           timer_duration_seconds: 300,
           timer_paused_remaining_seconds: 300
         })
@@ -83,22 +77,12 @@ export default function HomePage() {
         throw columnsError;
       }
 
-      const shareUrl = `${origin}/room/${room.slug}`;
-      setRoomLink(shareUrl);
-      setCreatorLink(`${shareUrl}?creator=1`);
+      router.push(`/room/${room.slug}?creator=1`);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Could not create the room.");
     } finally {
       setIsCreating(false);
     }
-  }
-
-  async function copyLink() {
-    if (!roomLink) {
-      return;
-    }
-
-    await navigator.clipboard.writeText(roomLink);
   }
 
   return (
@@ -109,14 +93,13 @@ export default function HomePage() {
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-sm text-slate-300 shadow-sm backdrop-blur-xl">
               <Sparkles className="h-4 w-4 text-cyan-200" />
-              Realtime retros, calm by design
+              Built by the most efficient squad: Partner Squad
             </div>
             <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-white md:text-7xl">
-              A polished retro room that stays steady.
+              Finally a decent retro tool
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              Fixed layout, realtime collaboration, private writing, voting and action items without the chaotic
-              whiteboard feel.
+              Create rooms, group cards, vote together and actually move forward.
             </p>
           </div>
 
@@ -155,37 +138,14 @@ export default function HomePage() {
                   )}
                 >
                   {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Create room
+                  Create room and enter as Facilitator
                 </button>
               </form>
-
-              {roomLink ? (
-                <div className="liquid-surface mt-6 rounded-2xl p-4">
-                  <p className="text-sm font-medium text-slate-200">Share link</p>
-                  <div className="mt-2 flex items-center gap-2 rounded-xl bg-black/20 p-2 text-sm text-slate-300">
-                    <span className="min-w-0 flex-1 truncate">{roomLink}</span>
-                    <button
-                      type="button"
-                      onClick={copyLink}
-                      className="ghost-button rounded-lg p-2"
-                      aria-label="Copy room link"
-                    >
-                      <Clipboard className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <Link
-                    href={creatorLink}
-                    className="primary-button mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium"
-                  >
-                    Enter as creator
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
       </section>
+      <OngoingRetrosSection />
     </main>
   );
 }

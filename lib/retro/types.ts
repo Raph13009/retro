@@ -2,16 +2,19 @@ export type MeetingPhase = "reflect" | "group" | "vote" | "discuss";
 export type RetroPhase = MeetingPhase | "writing" | "voting" | "discussion" | "finished";
 export type TimerStatus = "idle" | "running" | "paused" | "ended";
 export type ActionStatus = "todo" | "done";
+export type RoomStatus = "waiting" | "active" | "ended";
 
 export type Room = {
   id: string;
   slug: string;
   name: string;
   creator_participant_id: string | null;
+  status: RoomStatus;
   current_phase: RetroPhase;
   hide_cards_during_writing: boolean;
   cards_revealed: boolean;
   vote_limit: number;
+  vote_limit_per_participant: number;
   timer_duration_seconds: number;
   timer_started_at: string | null;
   timer_paused_remaining_seconds: number;
@@ -119,7 +122,11 @@ export type RoomSnapshot = {
 
 export const DEFAULT_COLUMNS = ["Start", "Stop", "Continue"];
 export const MEETING_PHASES: MeetingPhase[] = ["reflect", "group", "vote", "discuss"];
-export const SUGGESTED_EMOJIS = ["👍", "❤️", "👀", "🔥", "✅"];
+export const SUGGESTED_EMOJIS = ["👍", "❤️", "😂", "👀", "🔥", "✅", "🤔"];
+
+export function getVoteLimit(room: Room) {
+  return room.vote_limit_per_participant ?? room.vote_limit ?? 3;
+}
 
 export function normalizePhase(phase: RetroPhase): MeetingPhase {
   if (phase === "writing") {

@@ -2,7 +2,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { CheckSquare, GripVertical, MessageCircle, Pencil, Trash2 } from "lucide-react";
 import type { ActionItem, CardComment, Participant, Reaction, RetroCard as RetroCardType, Room, Vote } from "@/lib/retro/types";
-import { normalizePhase, SUGGESTED_EMOJIS } from "@/lib/retro/types";
+import { getVoteLimit, SUGGESTED_EMOJIS } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
 type RetroCardProps = {
@@ -41,7 +41,8 @@ export function RetroCard({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
   const isAuthor = card.author_participant_id === participant.id;
   const participantVote = votes.find((vote) => vote.card_id === card.id && vote.participant_id === participant.id);
-  const canVote = normalizePhase(room.current_phase) === "vote";
+  const usedVotes = votes.filter((vote) => vote.participant_id === participant.id).length;
+  const canVote = Boolean(participantVote) || usedVotes < getVoteLimit(room);
   const groupedReactions = SUGGESTED_EMOJIS.map((emoji) => ({
     emoji,
     count: reactions.filter((reaction) => reaction.card_id === card.id && reaction.emoji === emoji).length,
@@ -95,7 +96,7 @@ export function RetroCard({
             !canVote && "opacity-50"
           )}
         >
-          {card.vote_count} votes
+          +1 {card.vote_count}
         </button>
         <button
           type="button"

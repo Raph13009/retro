@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronRight, Pencil, Plus, Ungroup } from "lucide-react";
-import type { CardGroup as CardGroupType, MeetingPhase, Participant, RetroCard, Vote } from "@/lib/retro/types";
+import { CardVotingControls } from "@/components/retro/CardVotingControls";
+import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, Vote } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
 type CardGroupProps = {
@@ -10,12 +10,16 @@ type CardGroupProps = {
   cards: RetroCard[];
   participants: Participant[];
   votes: Vote[];
+  reactions: Reaction[];
   phase: MeetingPhase;
   currentParticipantId: string;
+  voteLimit: number;
+  maxVoteCount: number;
   onRenameGroup: (group: CardGroupType) => void;
   onDeleteGroup: (group: CardGroupType) => void;
   onUngroupCard: (card: RetroCard) => void;
   onVoteCard: (card: RetroCard) => void;
+  onReact: (card: RetroCard, emoji: string) => void;
 };
 
 export function CardGroup({
@@ -23,14 +27,18 @@ export function CardGroup({
   cards,
   participants,
   votes,
+  reactions,
   phase,
   currentParticipantId,
+  voteLimit,
+  maxVoteCount,
   onRenameGroup,
   onDeleteGroup,
   onUngroupCard,
-  onVoteCard
+  onVoteCard,
+  onReact
 }: CardGroupProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const { setNodeRef, isOver } = useDroppable({ id: `group:${group.id}` });
   const groupVotes = cards.reduce((total, card) => total + card.vote_count, 0);
   const orderedCards = useMemo(
@@ -46,24 +54,22 @@ export function CardGroup({
       ref={setNodeRef}
       className={cn(
         "relative rounded-[1.45rem] border border-violet-100 bg-white/80 p-4 shadow-[0_18px_40px_rgba(88,80,132,0.12)] transition",
-        isOver && "border-violet-400 bg-white"
+        isOver && "border-violet-400 bg-white ring-2 ring-violet-300/70"
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <button type="button" onClick={() => setExpanded((value) => !value)} className="mt-1 rounded-full text-slate-400">
-          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <button type="button" onClick={() => setExpanded((value) => !value)} className="shrink-0 rounded-full text-slate-400">
+              {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
             <h3 className="truncate text-base font-bold text-slate-950">{group.title}</h3>
-            <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-700">
-              {cards.length} {cards.length === 1 ? "Card" : "Cards"}
-            </span>
-            {groupVotes > 0 ? (
-              <span className="rounded-full bg-pink-100 px-2.5 py-1 text-xs font-bold text-pink-700">{groupVotes} votes</span>
-            ) : null}
           </div>
+          {groupVotes > 0 ? <p className="mt-1 pl-6 text-xs font-bold text-pink-600">{groupVotes} votes</p> : null}
         </div>
+        <span className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-extrabold text-violet-700">
+          {cards.length} {cards.length === 1 ? "Card" : "Cards"}
+        </span>
         <button
           type="button"
           onClick={() => onRenameGroup(group)}
@@ -75,32 +81,47 @@ export function CardGroup({
       </div>
 
       {!expanded ? (
-        <StackPreview cards={orderedCards} />
+        <button type="button" onClick={() => setExpanded(true)} className="mt-4 block w-full text-left" aria-label={`Open ${group.title} group`}>
+          <StackPreview cards={orderedCards} />
+        </button>
       ) : (
-        <div className="mt-4 space-y-[-0.35rem]">
-          {orderedCards.length === 0 ? (
-            <button
-              type="button"
-              onClick={() => onDeleteGroup(group)}
-              className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-violet-50/70 text-sm font-semibold text-violet-500"
-            >
-              <Plus className="h-4 w-4" />
-              Drop cards here
+        <div className="mt-4 rounded-[1.25rem] border border-violet-100 bg-violet-50/50 p-2">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Cards in group</p>
+            <button type="button" onClick={() => setExpanded(false)} className="rounded-full px-2 py-1 text-xs font-bold text-violet-600 hover:bg-white">
+              Collapse
             </button>
-          ) : (
-            orderedCards.map((card, index) => (
-              <GroupedCard
-                key={card.id}
-                card={card}
-                participant={participants.find((candidate) => candidate.id === card.author_participant_id)}
-                index={index}
-                phase={phase}
-                voted={votes.some((vote) => vote.card_id === card.id && vote.participant_id === currentParticipantId)}
-                onUngroupCard={onUngroupCard}
-                onVoteCard={onVoteCard}
-              />
-            ))
-          )}
+          </div>
+          <div className="space-y-2">
+            {orderedCards.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => onDeleteGroup(group)}
+                className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-violet-50/70 text-sm font-semibold text-violet-500"
+              >
+                <Plus className="h-4 w-4" />
+                Drop cards here
+              </button>
+            ) : (
+              orderedCards.map((card, index) => (
+                <GroupedCard
+                  key={card.id}
+                  card={card}
+                  participant={participants.find((candidate) => candidate.id === card.author_participant_id)}
+                  index={index}
+                  phase={phase}
+                  votes={votes}
+                  reactions={reactions}
+                  currentParticipantId={currentParticipantId}
+                  voteLimit={voteLimit}
+                  topVoted={phase === "vote" && maxVoteCount > 0 && card.vote_count === maxVoteCount}
+                  onUngroupCard={onUngroupCard}
+                  onVoteCard={onVoteCard}
+                  onReact={onReact}
+                />
+              ))
+            )}
+          </div>
         </div>
       )}
     </section>
@@ -108,21 +129,41 @@ export function CardGroup({
 }
 
 function StackPreview({ cards }: { cards: RetroCard[] }) {
+  const topCard = cards[0];
+  const layerCount = Math.min(Math.max(cards.length - 1, 0), 3);
+
+  if (!topCard) {
+    return (
+      <div className="flex min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-200 bg-violet-50/70 text-sm font-semibold text-violet-500">
+        <Plus className="h-4 w-4" />
+        Drop cards here
+      </div>
+    );
+  }
+
   return (
-    <div className="relative mt-4 h-24">
-      {cards.slice(0, 3).map((card, index) => (
+    <div className="relative h-[8.4rem]">
+      {Array.from({ length: layerCount }).map((_, index) => (
         <div
-          key={card.id}
-          className="absolute left-0 right-0 rounded-2xl bg-white p-3 text-sm font-medium text-slate-700 shadow-md"
+          key={`layer-${index}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-2 h-[7.2rem] rounded-2xl border border-violet-100 bg-white shadow-[0_10px_22px_rgba(88,80,132,0.08)]"
           style={{
-            top: index * 8,
-            transform: `rotate(${(index - 1) * 1.5}deg)`,
-            zIndex: 3 - index
+            top: (index + 1) * 7,
+            zIndex: layerCount - index,
+            opacity: 0.82 - index * 0.12
           }}
-        >
-          <p className="line-clamp-2">{card.content}</p>
-        </div>
+        />
       ))}
+      <div className="absolute inset-x-0 top-0 z-10 min-h-[7.2rem] rounded-2xl border border-slate-100 bg-white p-3 text-sm font-medium text-slate-700 shadow-[0_16px_34px_rgba(30,27,75,0.16)]">
+        <p className="line-clamp-3 text-sm font-semibold leading-5 text-slate-800">{topCard.content}</p>
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-400">Click to expand</span>
+          <span className="rounded-full bg-violet-100 px-2 py-1 text-xs font-extrabold text-violet-700">
+            {cards.length} {cards.length === 1 ? "Card" : "Cards"}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -132,31 +173,47 @@ function GroupedCard({
   participant,
   index,
   phase,
-  voted,
+  votes,
+  reactions,
+  currentParticipantId,
+  voteLimit,
+  topVoted,
   onUngroupCard,
-  onVoteCard
+  onVoteCard,
+  onReact
 }: {
   card: RetroCard;
   participant?: Participant;
   index: number;
   phase: MeetingPhase;
-  voted: boolean;
+  votes: Vote[];
+  reactions: Reaction[];
+  currentParticipantId: string;
+  voteLimit: number;
+  topVoted: boolean;
   onUngroupCard: (card: RetroCard) => void;
   onVoteCard: (card: RetroCard) => void;
+  onReact: (card: RetroCard, emoji: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `card:${card.id}` });
+  const { attributes, listeners, setNodeRef: setDraggableNodeRef, isDragging } = useDraggable({ id: `card:${card.id}` });
+  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({ id: `card-drop:${card.id}` });
+
+  function setNodeRef(node: HTMLElement | null) {
+    setDraggableNodeRef(node);
+    setDroppableNodeRef(node);
+  }
 
   return (
     <article
       ref={setNodeRef}
       style={{
-        transform: CSS.Translate.toString(transform),
-        zIndex: isDragging ? 20 : index + 1
+        zIndex: index + 1
       }}
       className={cn(
         "relative rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_10px_22px_rgba(15,23,42,0.1)] transition",
-        index > 0 && "ml-1",
-        isDragging && "opacity-70"
+        topVoted && "border-amber-200 ring-2 ring-amber-300 shadow-[0_18px_36px_rgba(245,158,11,0.2)]",
+        isOver && "ring-2 ring-violet-400 ring-offset-2 ring-offset-violet-50",
+        isDragging && "opacity-35"
       )}
       {...attributes}
       {...listeners}
@@ -173,21 +230,6 @@ function GroupedCard({
           {card.vote_count} votes
         </div>
         <div className="flex items-center gap-1">
-          {phase === "vote" ? (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onVoteCard(card);
-              }}
-              className={cn(
-                "rounded-full px-2 py-1 text-xs font-bold",
-                voted ? "bg-violet-600 text-white" : "bg-violet-50 text-violet-700"
-              )}
-            >
-              Vote
-            </button>
-          ) : null}
           <button
             type="button"
             onClick={(event) => {
@@ -201,6 +243,16 @@ function GroupedCard({
           </button>
         </div>
       </div>
+      <CardVotingControls
+        card={card}
+        phase={phase}
+        votes={votes}
+        reactions={reactions}
+        currentParticipantId={currentParticipantId}
+        voteLimit={voteLimit}
+        onVoteCard={onVoteCard}
+        onReact={onReact}
+      />
     </article>
   );
 }

@@ -23,7 +23,7 @@ import type {
   Room,
   Vote
 } from "@/lib/retro/types";
-import { normalizePhase } from "@/lib/retro/types";
+import { getVoteLimit, normalizePhase } from "@/lib/retro/types";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 
 type RetroAppProps = {
@@ -32,6 +32,10 @@ type RetroAppProps = {
 
 function nextPosition() {
   return Date.now() % 2_000_000_000;
+}
+
+function groupTitleFromCard(card: RetroCard) {
+  return card.content.slice(0, 48).trim() || "New topic";
 }
 
 export function RetroApp({ roomSlug }: RetroAppProps) {
@@ -384,9 +388,42 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     return performMutation(async () => {
       const { error: updateError } = await client.from("rooms").update(patch).eq("id", roomId);
       if (updateError) {
+        if ("status" in patch && updateError.code === "42703") {
+          const { status: _status, ...fallbackPatch } = patch;
+          const { error: fallbackError } = await client.from("rooms").update(fallbackPatch).eq("id", roomId);
+          if (!fallbackError) {
+            return;
+          }
+          throw fallbackError;
+        }
         throw updateError;
       }
     }, "Room update failed");
+  }
+
+  async function updateVoteLimit(limit: number) {
+    if (!isCreator) {
+      return false;
+    }
+
+    const nextLimit = Math.max(0, Math.min(20, Math.trunc(Number.isFinite(limit) ? limit : 3)));
+    return updateRoom({
+      vote_limit: nextLimit,
+      vote_limit_per_participant: nextLimit
+    });
+  }
+
+  async function changePhase(phase: MeetingPhase) {
+    return updateRoom({
+      current_phase: phase,
+      cards_revealed: phase !== "reflect",
+      status: "active"
+    });
+  }
+
+  async function endMeeting() {
+    setShowSummary(true);
+    await updateRoom({ status: "ended", current_phase: "discuss", cards_revealed: true });
   }
 
   async function addCard(columnId: string, content: string) {
@@ -491,29 +528,48 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const client = supabase;
     const roomId = room.id;
     const position = nextPosition();
-    return performMutation(async () => {
-      const { data, error: insertError } = await client
-        .from("card_groups")
-        .insert({
-          room_id: roomId,
-          column_id: columnId,
-          title: card ? card.content.slice(0, 48) || "New topic" : "New topic",
-          position,
-          created_by: participant.name
-        })
-        .select("*")
-        .single();
+    const groupId = crypto.randomUUID();
+    const optimisticGroup: CardGroup = {
+      id: groupId,
+      room_id: roomId,
+      column_id: columnId,
+      title: card ? groupTitleFromCard(card) : "New topic",
+      position,
+      created_by: participant.name,
+      created_at: new Date().toISOString()
+    };
+    const previousGroups = cardGroups;
+    const previousCards = cards;
+
+    setCardGroups((currentGroups) => [...currentGroups.filter((group) => group.id !== groupId), optimisticGroup]);
+    if (card) {
+      setCards((currentCards) =>
+        currentCards.map((currentCard) =>
+          currentCard.id === card.id ? { ...currentCard, column_id: columnId, group_id: groupId, position } : currentCard
+        )
+      );
+    }
+
+    const saved = await performMutation(async () => {
+      const { error: insertError } = await client.from("card_groups").insert({
+        id: groupId,
+        room_id: roomId,
+        column_id: columnId,
+        title: optimisticGroup.title,
+        position,
+        created_by: participant.name
+      });
 
       if (insertError) {
         throw insertError;
       }
 
-      if (card && data) {
+      if (card) {
         const { error: cardError } = await client
           .from("cards")
           .update({
             column_id: columnId,
-            group_id: data.id,
+            group_id: groupId,
             position
           })
           .eq("id", card.id);
@@ -523,6 +579,98 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         }
       }
     }, "Group creation failed");
+
+    if (!saved) {
+      setCardGroups(previousGroups);
+      setCards(previousCards);
+    }
+
+    return saved;
+  }
+
+  async function groupCards(card: RetroCard, targetCard: RetroCard) {
+    if (!supabase || !room || !participant || card.id === targetCard.id) {
+      return;
+    }
+
+    const client = supabase;
+    const roomId = room.id;
+    const groupId = crypto.randomUUID();
+    const basePosition = nextPosition();
+    const activePosition = Math.min(basePosition + 1, 2_000_000_000);
+    const targetColumnId = targetCard.column_id;
+    const optimisticGroup: CardGroup = {
+      id: groupId,
+      room_id: roomId,
+      column_id: targetColumnId,
+      title: groupTitleFromCard(targetCard),
+      position: basePosition,
+      created_by: participant.name,
+      created_at: new Date().toISOString()
+    };
+    const previousGroups = cardGroups;
+    const previousCards = cards;
+
+    setCardGroups((currentGroups) => [...currentGroups.filter((group) => group.id !== groupId), optimisticGroup]);
+    setCards((currentCards) =>
+      currentCards.map((currentCard) => {
+        if (currentCard.id === targetCard.id) {
+          return { ...currentCard, column_id: targetColumnId, group_id: groupId, position: basePosition };
+        }
+
+        if (currentCard.id === card.id) {
+          return { ...currentCard, column_id: targetColumnId, group_id: groupId, position: activePosition };
+        }
+
+        return currentCard;
+      })
+    );
+
+    const saved = await performMutation(async () => {
+      const { error: insertError } = await client.from("card_groups").insert({
+        id: groupId,
+        room_id: roomId,
+        column_id: targetColumnId,
+        title: optimisticGroup.title,
+        position: basePosition,
+        created_by: participant.name
+      });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      const { error: targetUpdateError } = await client
+        .from("cards")
+        .update({
+          column_id: targetColumnId,
+          group_id: groupId,
+          position: basePosition
+        })
+        .eq("id", targetCard.id);
+
+      if (targetUpdateError) {
+        throw targetUpdateError;
+      }
+
+      const { error: cardUpdateError } = await client
+        .from("cards")
+        .update({
+          column_id: targetColumnId,
+          group_id: groupId,
+          position: activePosition
+        })
+        .eq("id", card.id);
+
+      if (cardUpdateError) {
+        throw cardUpdateError;
+      }
+    }, "Card grouping failed");
+
+    if (!saved) {
+      setCardGroups(previousGroups);
+      setCards(previousCards);
+    }
   }
 
   async function renameGroup(group: CardGroup) {
@@ -570,7 +718,14 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
     const client = supabase;
     const position = nextPosition();
-    await performMutation(async () => {
+    const previousCards = cards;
+    setCards((currentCards) =>
+      currentCards.map((currentCard) =>
+        currentCard.id === card.id ? { ...currentCard, column_id: group.column_id, group_id: group.id, position } : currentCard
+      )
+    );
+
+    const saved = await performMutation(async () => {
       const { error: updateError } = await client
         .from("cards")
         .update({
@@ -584,6 +739,10 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         throw updateError;
       }
     }, "Card grouping failed");
+
+    if (!saved) {
+      setCards(previousCards);
+    }
   }
 
   async function moveCardToColumn(card: RetroCard, columnId: string) {
@@ -593,7 +752,14 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
     const client = supabase;
     const position = nextPosition();
-    await performMutation(async () => {
+    const previousCards = cards;
+    setCards((currentCards) =>
+      currentCards.map((currentCard) =>
+        currentCard.id === card.id ? { ...currentCard, column_id: columnId, group_id: null, position } : currentCard
+      )
+    );
+
+    const saved = await performMutation(async () => {
       const { error: updateError } = await client
         .from("cards")
         .update({
@@ -607,6 +773,10 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         throw updateError;
       }
     }, "Card move failed");
+
+    if (!saved) {
+      setCards(previousCards);
+    }
   }
 
   async function ungroupCard(card: RetroCard) {
@@ -615,12 +785,18 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
 
     const client = supabase;
-    await performMutation(async () => {
+    const position = nextPosition();
+    const previousCards = cards;
+    setCards((currentCards) =>
+      currentCards.map((currentCard) => (currentCard.id === card.id ? { ...currentCard, group_id: null, position } : currentCard))
+    );
+
+    const saved = await performMutation(async () => {
       const { error: updateError } = await client
         .from("cards")
         .update({
           group_id: null,
-          position: nextPosition()
+          position
         })
         .eq("id", card.id);
 
@@ -628,6 +804,10 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         throw updateError;
       }
     }, "Card ungroup failed");
+
+    if (!saved) {
+      setCards(previousCards);
+    }
   }
 
   async function addColumn() {
@@ -720,7 +900,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function voteCard(card: RetroCard) {
-    if (!supabase || !room || !participant || normalizePhase(room.current_phase) !== "vote") {
+    if (!supabase || !room || !participant) {
       return;
     }
 
@@ -729,23 +909,54 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const participantId = participant.id;
     const existingVote = votes.find((vote) => vote.card_id === card.id && vote.participant_id === participant.id);
     if (existingVote) {
-      await performMutation(async () => {
+      const previousVotes = votes;
+      const previousCards = cards;
+      setVotes((currentVotes) => currentVotes.filter((vote) => vote.id !== existingVote.id));
+      setCards((currentCards) =>
+        currentCards.map((currentCard) =>
+          currentCard.id === card.id ? { ...currentCard, vote_count: Math.max(0, currentCard.vote_count - 1) } : currentCard
+        )
+      );
+
+      const saved = await performMutation(async () => {
         const { error: deleteError } = await client.from("votes").delete().eq("id", existingVote.id);
         if (deleteError) {
           throw deleteError;
         }
       }, "Vote removal failed");
+
+      if (!saved) {
+        setVotes(previousVotes);
+        setCards(previousCards);
+      }
       return;
     }
 
     const usedVotes = votes.filter((vote) => vote.participant_id === participant.id).length;
-    if (usedVotes >= room.vote_limit) {
-      window.alert("You have used all your votes.");
+    if (usedVotes >= getVoteLimit(room)) {
+      showMutationError("Vote limit reached. Remove one of your votes before adding another.");
       return;
     }
 
-    await performMutation(async () => {
+    const optimisticVote: Vote = {
+      id: crypto.randomUUID(),
+      room_id: roomId,
+      card_id: card.id,
+      participant_id: participantId,
+      created_at: new Date().toISOString()
+    };
+    const previousVotes = votes;
+    const previousCards = cards;
+    setVotes((currentVotes) => [...currentVotes, optimisticVote]);
+    setCards((currentCards) =>
+      currentCards.map((currentCard) =>
+        currentCard.id === card.id ? { ...currentCard, vote_count: currentCard.vote_count + 1 } : currentCard
+      )
+    );
+
+    const saved = await performMutation(async () => {
       const { error: insertError } = await client.from("votes").insert({
+        id: optimisticVote.id,
         room_id: roomId,
         card_id: card.id,
         participant_id: participantId
@@ -754,6 +965,11 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         throw insertError;
       }
     }, "Vote failed");
+
+    if (!saved) {
+      setVotes(previousVotes);
+      setCards(previousCards);
+    }
   }
 
   async function reactToCard(card: RetroCard, emoji: string) {
@@ -769,17 +985,36 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     );
 
     if (existingReaction) {
-      await performMutation(async () => {
+      const previousReactions = reactions;
+      setReactions((currentReactions) => currentReactions.filter((reaction) => reaction.id !== existingReaction.id));
+
+      const saved = await performMutation(async () => {
         const { error: deleteError } = await client.from("reactions").delete().eq("id", existingReaction.id);
         if (deleteError) {
           throw deleteError;
         }
       }, "Reaction removal failed");
+
+      if (!saved) {
+        setReactions(previousReactions);
+      }
       return;
     }
 
-    await performMutation(async () => {
+    const optimisticReaction: Reaction = {
+      id: crypto.randomUUID(),
+      room_id: roomId,
+      card_id: card.id,
+      participant_id: participantId,
+      emoji,
+      created_at: new Date().toISOString()
+    };
+    const previousReactions = reactions;
+    setReactions((currentReactions) => [...currentReactions, optimisticReaction]);
+
+    const saved = await performMutation(async () => {
       const { error: insertError } = await client.from("reactions").insert({
+        id: optimisticReaction.id,
         room_id: roomId,
         card_id: card.id,
         participant_id: participantId,
@@ -789,6 +1024,10 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         throw insertError;
       }
     }, "Reaction failed");
+
+    if (!saved) {
+      setReactions(previousReactions);
+    }
   }
 
   async function addComment(card: RetroCard, content: string) {
@@ -916,6 +1155,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   if (!participant) {
+    const claimingFacilitator = creatorRequested && !room.creator_participant_id;
+
     return (
       <main className="grid h-dvh place-items-center p-6 text-slate-100">
         <form onSubmit={joinRoom} className="liquid-panel w-full max-w-md rounded-[2rem] p-6">
@@ -934,9 +1175,13 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
             />
           </div>
           <p className="text-sm font-medium text-cyan-200">{room.name}</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Join the retro</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+            {claimingFacilitator ? "Enter as Facilitator" : "Join the retro"}
+          </h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
-            Pick a name or pseudonym. It is stored locally on this device and used for cards, votes, and comments.
+            {claimingFacilitator
+              ? "Pick your name. You will become the meeting facilitator, then you can share the clean room URL with everyone else."
+              : "Pick a name or pseudonym. It is stored locally on this device and used for cards, votes, and comments."}
           </p>
           <label className="mt-6 block">
             <span className="mb-2 block text-sm font-medium text-slate-300">Your name</span>
@@ -954,7 +1199,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
             className="primary-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium disabled:opacity-50"
           >
             {isJoining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Join room
+            {claimingFacilitator ? "Enter as Facilitator" : "Join room"}
           </button>
         </form>
       </main>
@@ -970,8 +1215,13 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       phase={currentPhase}
       isCreator={isCreator}
       remainingSeconds={remainingSeconds}
-      onPhaseChange={(phase: MeetingPhase) => updateRoom({ current_phase: phase, cards_revealed: phase !== "reflect" })}
-      onEndMeeting={() => setShowSummary(true)}
+      votes={votes}
+      currentParticipantId={participant.id}
+      onPhaseChange={changePhase}
+      onVoteLimitChange={updateVoteLimit}
+      onEndMeeting={() => {
+        void endMeeting();
+      }}
     >
       {room.timer_status === "ended" ? (
         <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
@@ -990,15 +1240,19 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         cards={visibleCards}
         participants={participants}
         votes={votes}
+        reactions={reactions}
         currentParticipantId={participant.id}
+        voteLimit={getVoteLimit(room)}
         onAddCard={addCard}
         onCreateGroup={createGroup}
         onRenameGroup={renameGroup}
         onDeleteGroup={deleteGroup}
         onMoveCardToGroup={moveCardToGroup}
         onMoveCardToColumn={moveCardToColumn}
+        onGroupCards={groupCards}
         onUngroupCard={ungroupCard}
         onVoteCard={voteCard}
+        onReact={reactToCard}
       />
 
       <CommentDrawer
@@ -1016,7 +1270,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         cards={cards}
         actionItems={actionItems}
         onClose={() => setShowSummary(false)}
-        onFinish={() => updateRoom({ current_phase: "discuss" })}
+        onFinish={() => updateRoom({ current_phase: "discuss", status: "ended", cards_revealed: true })}
       />
     </RetroLayout>
   );

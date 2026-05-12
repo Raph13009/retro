@@ -5,10 +5,12 @@ create table if not exists public.rooms (
   slug text not null unique,
   name text not null,
   creator_participant_id uuid,
+  status text not null default 'waiting' check (status in ('waiting', 'active', 'ended')),
   current_phase text not null default 'reflect' check (current_phase in ('reflect', 'group', 'vote', 'discuss', 'writing', 'voting', 'discussion', 'finished')),
   hide_cards_during_writing boolean not null default false,
   cards_revealed boolean not null default false,
   vote_limit integer not null default 3 check (vote_limit >= 0 and vote_limit <= 20),
+  vote_limit_per_participant integer not null default 3 check (vote_limit_per_participant >= 0 and vote_limit_per_participant <= 20),
   timer_duration_seconds integer not null default 300 check (timer_duration_seconds > 0),
   timer_started_at timestamptz,
   timer_paused_remaining_seconds integer not null default 300 check (timer_paused_remaining_seconds >= 0),
@@ -115,7 +117,7 @@ create table if not exists public.reactions (
   room_id uuid not null references public.rooms(id) on delete cascade,
   card_id uuid not null references public.cards(id) on delete cascade,
   participant_id uuid not null references public.participants(id) on delete cascade,
-  emoji text not null check (emoji in ('👍', '❤️', '👀', '🔥', '✅')),
+  emoji text not null check (emoji in ('👍', '❤️', '😂', '👀', '🔥', '✅', '🤔')),
   created_at timestamptz not null default now(),
   unique (room_id, card_id, participant_id, emoji)
 );
@@ -204,7 +206,7 @@ declare
   allowed_votes integer;
   used_votes integer;
 begin
-  select vote_limit into allowed_votes
+  select coalesce(vote_limit_per_participant, vote_limit, 3) into allowed_votes
   from public.rooms
   where id = new.room_id;
 
@@ -232,6 +234,39 @@ begin
   alter table public.rooms
     add constraint rooms_current_phase_check
     check (current_phase in ('reflect', 'group', 'vote', 'discuss', 'writing', 'voting', 'discussion', 'finished'));
+
+  alter table public.rooms add column if not exists status text;
+  update public.rooms
+  set status = case
+    when current_phase in ('finished') then 'ended'
+    when current_phase in ('group', 'vote', 'voting', 'discussion', 'discuss') then 'active'
+    else coalesce(status, 'waiting')
+  end
+  where status is null;
+  alter table public.rooms alter column status set default 'waiting';
+  alter table public.rooms alter column status set not null;
+
+  alter table public.rooms drop constraint if exists rooms_status_check;
+  alter table public.rooms
+    add constraint rooms_status_check
+    check (status in ('waiting', 'active', 'ended'));
+
+  alter table public.rooms add column if not exists vote_limit_per_participant integer;
+  update public.rooms
+  set vote_limit_per_participant = coalesce(vote_limit, 3)
+  where vote_limit_per_participant is null;
+  alter table public.rooms alter column vote_limit_per_participant set default 3;
+  alter table public.rooms alter column vote_limit_per_participant set not null;
+
+  alter table public.rooms drop constraint if exists rooms_vote_limit_per_participant_check;
+  alter table public.rooms
+    add constraint rooms_vote_limit_per_participant_check
+    check (vote_limit_per_participant >= 0 and vote_limit_per_participant <= 20);
+
+  alter table public.reactions drop constraint if exists reactions_emoji_check;
+  alter table public.reactions
+    add constraint reactions_emoji_check
+    check (emoji in ('👍', '❤️', '😂', '👀', '🔥', '✅', '🤔'));
 
   alter table public.cards add column if not exists group_id uuid;
   alter table public.cards add column if not exists position integer not null default 0;
