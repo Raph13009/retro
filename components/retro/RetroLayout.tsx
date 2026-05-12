@@ -16,7 +16,7 @@ type RetroLayoutProps = {
   currentParticipantId: string;
   onPhaseChange: (phase: MeetingPhase) => void;
   onVoteLimitChange: (limit: number) => void;
-  onStartTimer: () => void;
+  onOpenTimerSettings: () => void;
   onPauseTimer: () => void;
   onResetTimer: () => void;
   onConfirmDiscuss: () => void;
@@ -36,7 +36,7 @@ export function RetroLayout({
   currentParticipantId,
   onPhaseChange,
   onVoteLimitChange,
-  onStartTimer,
+  onOpenTimerSettings,
   onPauseTimer,
   onResetTimer,
   onConfirmDiscuss,
@@ -66,7 +66,7 @@ export function RetroLayout({
         isCreator={isCreator}
         onPhaseChange={onPhaseChange}
         onVoteLimitChange={onVoteLimitChange}
-        onStartTimer={onStartTimer}
+        onOpenTimerSettings={onOpenTimerSettings}
         onPauseTimer={onPauseTimer}
         onResetTimer={onResetTimer}
         onConfirmDiscuss={onConfirmDiscuss}

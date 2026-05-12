@@ -13,7 +13,7 @@ type BottomMeetingBarProps = {
   isCreator: boolean;
   onPhaseChange: (phase: MeetingPhase) => void;
   onVoteLimitChange: (limit: number) => void;
-  onStartTimer: () => void;
+  onOpenTimerSettings: () => void;
   onPauseTimer: () => void;
   onResetTimer: () => void;
   onConfirmDiscuss: () => void;
@@ -30,7 +30,7 @@ export function BottomMeetingBar({
   isCreator,
   onPhaseChange,
   onVoteLimitChange,
-  onStartTimer,
+  onOpenTimerSettings,
   onPauseTimer,
   onResetTimer,
   onConfirmDiscuss,
@@ -49,7 +49,7 @@ export function BottomMeetingBar({
           <Music2 className="h-4 w-4 text-violet-500" />
           Music
         </button>
-        <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50" type="button">
+        <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50" type="button" onClick={onOpenTimerSettings}>
           <Timer className="h-4 w-4 text-violet-500" />
           {timerLabel}
         </button>
@@ -61,16 +61,24 @@ export function BottomMeetingBar({
                 Pause
               </button>
             ) : room.timer_status === "ended" ? (
+              phase === "discuss" ? (
+                <span className="rounded-full bg-slate-100 px-4 py-2 text-slate-500">Timer ended</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onConfirmDiscuss}
+                  className="rounded-full bg-violet-600 px-4 py-2 text-white shadow-lg shadow-violet-300/40"
+                >
+                  Discuss
+                </button>
+              )
+            ) : (
               <button
                 type="button"
-                onClick={onConfirmDiscuss}
-                className="rounded-full bg-violet-600 px-4 py-2 text-white shadow-lg shadow-violet-300/40"
+                onClick={onOpenTimerSettings}
+                className="flex items-center gap-2 rounded-full bg-slate-950 px-5 py-2.5 text-white shadow-lg shadow-slate-400/30"
               >
-                Discuss
-              </button>
-            ) : (
-              <button type="button" onClick={onStartTimer} className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50">
-                <Play className="h-4 w-4 text-violet-500" />
+                <Play className="h-4 w-4 text-violet-200" />
                 Start
               </button>
             )}

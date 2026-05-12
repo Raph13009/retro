@@ -58,6 +58,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [operationError, setOperationError] = useState("");
   const [remainingSeconds, setRemainingSeconds] = useState(300);
   const [showSummary, setShowSummary] = useState(false);
+  const [showTimerSettings, setShowTimerSettings] = useState(false);
+  const [timerDraftMinutes, setTimerDraftMinutes] = useState(5);
   const operationErrorTimeoutRef = useRef<number | null>(null);
 
   const creatorRequested = useMemo(() => {
@@ -421,16 +423,33 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     });
   }
 
-  async function startTimer() {
+  function openTimerSettings() {
+    if (!isCreator || !room) {
+      return;
+    }
+
+    setTimerDraftMinutes(Math.max(1, Math.round(room.timer_duration_seconds / 60)));
+    setShowTimerSettings(true);
+  }
+
+  async function startTimer(durationSeconds?: number) {
     if (!isCreator || !room) {
       return false;
     }
 
+    const nextDuration = durationSeconds ?? room.timer_duration_seconds;
+    if (!window.confirm(`Start a ${Math.round(nextDuration / 60)} minute timer?`)) {
+      return false;
+    }
+
     const currentRemaining = getRemainingSeconds(room);
+    setShowTimerSettings(false);
     return updateRoom({
+      timer_duration_seconds: nextDuration,
       timer_status: "running",
       timer_started_at: new Date().toISOString(),
-      timer_paused_remaining_seconds: currentRemaining > 0 ? currentRemaining : room.timer_duration_seconds,
+      timer_paused_remaining_seconds:
+        durationSeconds || room.timer_status === "idle" || room.timer_status === "ended" ? nextDuration : currentRemaining,
       status: "active"
     });
   }
@@ -470,6 +489,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     return updateRoom({
       current_phase: "discuss",
       cards_revealed: true,
+      status: "active"
+    });
+  }
+
+  async function addOneMinute() {
+    if (!isCreator) {
+      return false;
+    }
+
+    return updateRoom({
+      timer_status: "running",
+      timer_started_at: new Date().toISOString(),
+      timer_paused_remaining_seconds: 60,
+      cards_revealed: false,
       status: "active"
     });
   }
@@ -1287,9 +1320,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       currentParticipantId={participant.id}
       onPhaseChange={changePhase}
       onVoteLimitChange={updateVoteLimit}
-      onStartTimer={() => {
-        void startTimer();
-      }}
+      onOpenTimerSettings={openTimerSettings}
       onPauseTimer={() => {
         void pauseTimer();
       }}
@@ -1303,7 +1334,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         void closeRoom();
       }}
     >
-      {room.timer_status === "ended" ? (
+      {room.timer_status === "ended" && currentPhase !== "discuss" ? (
         <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
           Time is up. Facilitator can switch to Discuss.
         </div>
@@ -1313,6 +1344,26 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           {operationError}
         </div>
       ) : null}
+      {showTimerSettings ? (
+        <TimerSettingsModal
+          minutes={timerDraftMinutes}
+          onMinutesChange={setTimerDraftMinutes}
+          onClose={() => setShowTimerSettings(false)}
+          onStart={() => {
+            void startTimer(timerDraftMinutes * 60);
+          }}
+        />
+      ) : null}
+      {isCreator && room.timer_status === "ended" && currentPhase !== "discuss" && room.status !== "ended" ? (
+        <TimerEndedDecisionModal
+          onAddMinute={() => {
+            void addOneMinute();
+          }}
+          onConfirmDiscuss={() => {
+            void confirmDiscuss();
+          }}
+        />
+      ) : null}
       <GroupBoard
         phase={currentPhase}
         columns={columns}
@@ -1321,6 +1372,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         participants={participants}
         votes={votes}
         reactions={reactions}
+        canAddCards={currentPhase === "reflect" && room.timer_status !== "ended"}
         currentParticipantId={participant.id}
         voteLimit={getVoteLimit(room)}
         onAddCard={addCard}
@@ -1353,5 +1405,70 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         onFinish={() => updateRoom({ current_phase: "discuss", status: "ended", cards_revealed: true })}
       />
     </RetroLayout>
+  );
+}
+
+function TimerSettingsModal({
+  minutes,
+  onMinutesChange,
+  onClose,
+  onStart
+}: {
+  minutes: number;
+  onMinutesChange: (minutes: number) => void;
+  onClose: () => void;
+  onStart: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-6 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white p-5 text-slate-950 shadow-[0_28px_90px_rgba(30,27,75,0.28)]">
+        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-violet-500">Timer setup</p>
+        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Set the writing timer</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Default is 5 minutes. Start only when the facilitator is ready.</p>
+
+        <label className="mt-5 block">
+          <span className="mb-2 block text-sm font-bold text-slate-700">Duration in minutes</span>
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={minutes}
+            onChange={(event) => onMinutesChange(Math.max(1, Math.min(60, Number(event.target.value) || 5)))}
+            className="w-full rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-lg font-extrabold outline-none focus:border-violet-400"
+          />
+        </label>
+
+        <div className="mt-6 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-extrabold text-slate-600">
+            Cancel
+          </button>
+          <button type="button" onClick={onStart} className="flex-[1.5] rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg">
+            Start timer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimerEndedDecisionModal({ onAddMinute, onConfirmDiscuss }: { onAddMinute: () => void; onConfirmDiscuss: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-6 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white p-5 text-slate-950 shadow-[0_28px_90px_rgba(30,27,75,0.28)]">
+        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-rose-500">Timer finished</p>
+        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Move forward?</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          Add one more minute for writing, or confirm and move everyone to Discuss.
+        </p>
+        <div className="mt-6 flex gap-2">
+          <button type="button" onClick={onAddMinute} className="flex-1 rounded-2xl bg-violet-100 px-4 py-3 text-sm font-extrabold text-violet-700">
+            +1 minute
+          </button>
+          <button type="button" onClick={onConfirmDiscuss} className="flex-[1.3] rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg">
+            Confirm Discuss
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

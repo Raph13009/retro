@@ -14,6 +14,7 @@ type GroupColumnProps = {
   participants: Participant[];
   votes: Vote[];
   reactions: Reaction[];
+  canAddCards: boolean;
   currentParticipantId: string;
   voteLimit: number;
   maxVoteCount: number;
@@ -36,6 +37,7 @@ export function GroupColumn({
   participants,
   votes,
   reactions,
+  canAddCards,
   currentParticipantId,
   voteLimit,
   maxVoteCount,
@@ -101,7 +103,7 @@ export function GroupColumn({
         </div>
       </div>
 
-      {phase === "reflect" ? (
+      {canAddCards ? (
         <form onSubmit={submitCard} className="mb-4 rounded-[1.5rem] border border-violet-200 bg-white/70 p-3 shadow-sm">
           <textarea
             value={content}
@@ -172,7 +174,7 @@ export function GroupColumn({
 
           {groups.length === 0 && columnCards.length === 0 ? (
             <div className="grid min-h-48 place-items-center rounded-[1.5rem] border border-dashed border-violet-300/70 bg-white/35 p-5 text-center text-sm font-semibold text-violet-400">
-              {phase === "reflect" ? "No reflections yet" : "Drop a card here to create a group"}
+              {canAddCards ? "No reflections yet" : "Drop a card here to create a group"}
             </div>
           ) : null}
         </div>

@@ -20,6 +20,7 @@ type GroupBoardProps = {
   participants: Participant[];
   votes: Vote[];
   reactions: Reaction[];
+  canAddCards: boolean;
   currentParticipantId: string;
   voteLimit: number;
   onAddCard: (columnId: string, content: string) => Promise<boolean>;
@@ -59,6 +60,7 @@ export function GroupBoard({
   participants,
   votes,
   reactions,
+  canAddCards,
   currentParticipantId,
   voteLimit,
   onAddCard,
@@ -149,6 +151,7 @@ export function GroupBoard({
             participants={participants}
             votes={votes}
             reactions={reactions}
+            canAddCards={canAddCards}
             currentParticipantId={currentParticipantId}
             voteLimit={voteLimit}
             maxVoteCount={maxVoteCount}
