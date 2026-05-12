@@ -6,28 +6,28 @@ export function AppBackground() {
   return (
     <div aria-hidden="true" className="app-background">
       <Grainient
-        color1="#F7F3EA"
-        color2="#E7E2EF"
-        color3="#DCE5E0"
-        timeSpeed={0.08}
-        colorBalance={0.06}
-        warpStrength={0.44}
-        warpFrequency={2.8}
-        warpSpeed={0.72}
-        warpAmplitude={26}
-        blendAngle={-18}
-        blendSoftness={0.18}
-        rotationAmount={160}
-        noiseScale={1.45}
-        grainAmount={0.045}
+        color1="#FF9FFC"
+        color2="#5227FF"
+        color3="#B497CF"
+        timeSpeed={1.05}
+        colorBalance={0}
+        warpStrength={1}
+        warpFrequency={5}
+        warpSpeed={2}
+        warpAmplitude={50}
+        blendAngle={0}
+        blendSoftness={0.05}
+        rotationAmount={500}
+        noiseScale={2}
+        grainAmount={0.1}
         grainScale={2}
         grainAnimated={false}
-        contrast={0.92}
+        contrast={1.5}
         gamma={1}
-        saturation={0.48}
+        saturation={1}
         centerX={0}
         centerY={0}
-        zoom={0.96}
+        zoom={0.9}
       />
     </div>
   );

@@ -61,16 +61,6 @@ button:disabled {
   pointer-events: none;
 }
 
-.app-background::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  background:
-    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.84), transparent 25rem),
-    radial-gradient(circle at 88% 12%, rgba(229, 224, 241, 0.56), transparent 30rem),
-    linear-gradient(180deg, rgba(246, 243, 237, 0.56), rgba(246, 243, 237, 0.96));
-}
-
 .grainient-container {
   position: relative;
   height: 100%;

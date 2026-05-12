@@ -87,19 +87,19 @@ export default function HomePage() {
   }
 
   return (
-    <main className="relative h-dvh overflow-hidden px-6 py-10 text-neutral-950">
+    <main className="relative h-dvh overflow-hidden px-6 py-10 text-slate-100">
       <ImageTrail items={homeTrailImages} variant={5} />
       <section className="relative mx-auto flex h-full max-w-6xl items-center">
         <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#ded8e8]/80 bg-white/60 px-3 py-1 text-sm text-slate-600 shadow-sm backdrop-blur-xl">
-              <Sparkles className="h-4 w-4 text-[#5a5389]" />
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-sm text-slate-300 shadow-sm backdrop-blur-xl">
+              <Sparkles className="h-4 w-4 text-cyan-200" />
               Built between two Partner Squad tickets
             </div>
-            <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-neutral-950 md:text-7xl">
+            <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-white md:text-7xl">
               Finally a decent retro tool
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
               Create rooms, group cards, vote together and actually move forward.
             </p>
             <Link

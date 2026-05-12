@@ -21,8 +21,8 @@ type BottomMeetingBarProps = {
 
 const MUSIC_TRACKS = [
   { id: "marseille", label: "Marseille", icon: "☀️", src: "/music/marseille-music.mp3", startAtSeconds: 0 },
-  { id: "casa", label: "Rabat", icon: "🇲🇦", src: "/music/casa.mp3", startAtSeconds: 10 },
-  { id: "south-america", label: "Mexico", icon: "🇲🇽", src: "/music/south-america.mp3", startAtSeconds: 10 }
+  { id: "casa", label: "Rabat", icon: "🇲🇦", src: "/music/casa.mp3", startAtSeconds: 20 },
+  { id: "south-america", label: "Mexico", icon: "🇲🇽", src: "/music/south-america.mp3", startAtSeconds: 20 }
 ] as const;
 
 type MusicTrack = (typeof MUSIC_TRACKS)[number];
