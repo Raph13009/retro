@@ -1,6 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, Circle, UserRound } from "lucide-react";
 import type { MeetingPhase, Participant, Room } from "@/lib/retro/types";
-import { MEETING_PHASES, phaseLabel } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
 type RetroSidebarProps = {
@@ -13,8 +12,15 @@ type RetroSidebarProps = {
   onPhaseChange: (phase: MeetingPhase) => void;
 };
 
+const SIDEBAR_STEPS: Array<{ id: "joining" | MeetingPhase; label: string }> = [
+  { id: "joining", label: "Joining" },
+  { id: "reflect", label: "Reflect" },
+  { id: "discuss", label: "Discuss" }
+];
+
 export function RetroSidebar({ room, participant, currentPhase, isCreator, collapsed, onToggleCollapsed, onPhaseChange }: RetroSidebarProps) {
-  const currentIndex = MEETING_PHASES.indexOf(currentPhase);
+  const activeStep = room.status === "waiting" ? "joining" : currentPhase === "discuss" ? "discuss" : "reflect";
+  const currentIndex = SIDEBAR_STEPS.findIndex((step) => step.id === activeStep);
 
   return (
     <aside
@@ -58,18 +64,18 @@ export function RetroSidebar({ room, participant, currentPhase, isCreator, colla
       </div>
 
       <nav className="mt-8 space-y-2">
-        {MEETING_PHASES.map((phase, index) => {
-          const active = phase === currentPhase;
+        {SIDEBAR_STEPS.map((step, index) => {
+          const active = step.id === activeStep;
           const complete = index < currentIndex;
-          const disabled = !isCreator || (room.status === "waiting" && phase !== "reflect");
+          const disabled = step.id === "joining" || !isCreator || room.status === "waiting";
 
           return (
             <button
-              key={phase}
+              key={step.id}
               type="button"
-              onClick={() => (!disabled ? onPhaseChange(phase) : undefined)}
+              onClick={() => (!disabled && step.id !== "joining" ? onPhaseChange(step.id) : undefined)}
               disabled={disabled}
-              title={collapsed ? phaseLabel(phase) : undefined}
+              title={collapsed ? step.label : undefined}
               className={cn(
                 "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold transition",
                 collapsed && "justify-center px-0",
@@ -88,7 +94,7 @@ export function RetroSidebar({ room, participant, currentPhase, isCreator, colla
               >
                 {complete ? <Check className="h-3.5 w-3.5" /> : <Circle className="h-3 w-3 fill-current" />}
               </span>
-              {!collapsed ? phaseLabel(phase) : null}
+              {!collapsed ? step.label : null}
             </button>
           );
         })}
@@ -96,7 +102,7 @@ export function RetroSidebar({ room, participant, currentPhase, isCreator, colla
 
       {!collapsed ? <div className="mt-auto rounded-3xl bg-violet-50 p-4 text-sm text-violet-900">
         <p className="font-semibold">Meeting flow</p>
-        <p className="mt-1 leading-6 text-violet-700">Reflect, group ideas, vote, then discuss the most important topics.</p>
+        <p className="mt-1 leading-6 text-violet-700">Wait for everyone to join, reflect, then discuss decisions.</p>
       </div> : null}
     </aside>
   );

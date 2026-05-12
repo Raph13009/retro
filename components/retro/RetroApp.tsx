@@ -1705,10 +1705,7 @@ function OneMinuteTimerNotification({ visible, onClose }: { visible: boolean; on
           />
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <p className="truncate text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Timer notification</p>
-            <span className="text-[11px] font-bold text-slate-400">now</span>
-          </div>
+          <span className="text-[11px] font-bold text-slate-400">now</span>
           <p className="mt-1 text-sm font-extrabold tracking-[-0.02em] text-slate-950">One minute left. Wrap it up.</p>
         </div>
         <button type="button" onClick={onClose} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-extrabold text-slate-500 hover:bg-violet-50">
@@ -1768,17 +1765,17 @@ function TimerEndedDecisionModal({ onAddMinute, onConfirmDiscuss }: { onAddMinut
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-6 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white p-5 text-slate-950 shadow-[0_28px_90px_rgba(30,27,75,0.28)]">
-        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-rose-500">Timer finished</p>
-        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Move forward?</h2>
+        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-rose-500">Time is up</p>
+        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">It&apos;s over.</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          Add one more minute for writing, or confirm and move everyone to Discuss.
+          End the writing round now, or give the team one more minute.
         </p>
         <div className="mt-6 flex gap-2">
           <button type="button" onClick={onAddMinute} className="flex-1 rounded-2xl bg-violet-100 px-4 py-3 text-sm font-extrabold text-violet-700">
             +1 minute
           </button>
           <button type="button" onClick={onConfirmDiscuss} className="flex-[1.3] rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg">
-            Confirm Discuss
+            End
           </button>
         </div>
       </div>
