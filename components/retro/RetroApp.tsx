@@ -42,6 +42,8 @@ function groupTitleFromCard(card: RetroCard) {
   return card.content.slice(0, 48).trim() || "New topic";
 }
 
+const ONE_MINUTE_AVATAR_SRC = "/Screenshot 2026-05-11 at 17.27.17.png";
+
 type ConfirmRequest = {
   title: string;
   text: string;
@@ -81,10 +83,12 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [showSummary, setShowSummary] = useState(false);
   const [showTimerSettings, setShowTimerSettings] = useState(false);
   const [timerDraftMinutes, setTimerDraftMinutes] = useState(5);
+  const [oneMinuteNoticeVisible, setOneMinuteNoticeVisible] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const [textRequest, setTextRequest] = useState<TextRequest | null>(null);
   const [groupToRename, setGroupToRename] = useState<CardGroup | null>(null);
   const operationErrorTimeoutRef = useRef<number | null>(null);
+  const oneMinuteNoticeKeyRef = useRef<string | null>(null);
 
   const creatorRequested = useMemo(() => {
     if (typeof window === "undefined") {
@@ -363,6 +367,31 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     return () => window.clearInterval(interval);
   }, [room]);
 
+  useEffect(() => {
+    if (!room || room.timer_status !== "running") {
+      setOneMinuteNoticeVisible(false);
+      if (room?.timer_status === "idle") {
+        oneMinuteNoticeKeyRef.current = null;
+      }
+      return;
+    }
+
+    const noticeKey = `${room.id}:${room.timer_started_at ?? "running"}`;
+    if (remainingSeconds <= 60 && remainingSeconds > 0 && oneMinuteNoticeKeyRef.current !== noticeKey) {
+      oneMinuteNoticeKeyRef.current = noticeKey;
+      setOneMinuteNoticeVisible(true);
+    }
+  }, [remainingSeconds, room]);
+
+  useEffect(() => {
+    if (!oneMinuteNoticeVisible) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setOneMinuteNoticeVisible(false), 9000);
+    return () => window.clearTimeout(timeout);
+  }, [oneMinuteNoticeVisible]);
+
   const visibleCards = useMemo(() => {
     if (!room || !participant) {
       return [];
@@ -589,23 +618,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return false;
     }
 
-    setConfirmRequest({
-      title: "End this retro?",
-      text: "This will close the session and remove it from ongoing retros.",
-      confirmLabel: "End retro",
-      tone: "danger",
-      onConfirm: async () => {
-        setShowSummary(true);
-        await updateRoom({
-          status: "ended",
-          current_phase: "discuss",
-          cards_revealed: true,
-          timer_status: "ended",
-          timer_started_at: null,
-          timer_paused_remaining_seconds: 0
-        });
-      }
-    });
+    setShowSummary(true);
     return true;
   }
 
@@ -1514,6 +1527,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         </div>
       ) : null}
       <AppToast message={operationError} onClose={() => setOperationError("")} />
+      <OneMinuteTimerNotification visible={oneMinuteNoticeVisible} onClose={() => setOneMinuteNoticeVisible(false)} />
       <ConfirmModal
         open={Boolean(confirmRequest)}
         title={confirmRequest?.title ?? ""}
@@ -1586,10 +1600,23 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         room={room}
         participants={participants}
         columns={columns}
+        cardGroups={cardGroups}
         cards={cards}
+        comments={comments}
+        reactions={reactions}
         actionItems={actionItems}
         onClose={() => setShowSummary(false)}
-        onFinish={() => updateRoom({ current_phase: "discuss", status: "ended", cards_revealed: true })}
+        onFinish={async () => {
+          await updateRoom({
+            current_phase: "discuss",
+            status: "ended",
+            cards_revealed: true,
+            timer_status: "ended",
+            timer_started_at: null,
+            timer_paused_remaining_seconds: 0
+          });
+          setShowSummary(false);
+        }}
       />
     </RetroLayout>
   );
@@ -1648,6 +1675,47 @@ function TextInputModal({ request, onClose }: { request: TextRequest | null; onC
         </div>
       </form>
     </AppModal>
+  );
+}
+
+function OneMinuteTimerNotification({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setImageFailed(false);
+    }
+  }, [visible]);
+
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <div className="fixed left-1/2 top-5 z-50 w-[min(92vw,420px)] -translate-x-1/2 rounded-[1.4rem] border border-white/70 bg-white/92 p-3 text-slate-950 shadow-[0_24px_80px_rgba(30,27,75,0.24)] backdrop-blur-2xl">
+      <div className="flex items-center gap-3">
+        {imageFailed ? (
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-950 text-xs font-extrabold text-white">PS</div>
+        ) : (
+          <img
+            src={ONE_MINUTE_AVATAR_SRC}
+            alt="Timer messenger avatar"
+            onError={() => setImageFailed(true)}
+            className="h-11 w-11 shrink-0 rounded-full border border-violet-100 object-cover shadow-sm"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="truncate text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Timer notification</p>
+            <span className="text-[11px] font-bold text-slate-400">now</span>
+          </div>
+          <p className="mt-1 text-sm font-extrabold tracking-[-0.02em] text-slate-950">One minute left. Wrap it up.</p>
+        </div>
+        <button type="button" onClick={onClose} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-extrabold text-slate-500 hover:bg-violet-50">
+          Dismiss
+        </button>
+      </div>
+    </div>
   );
 }
 
