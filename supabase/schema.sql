@@ -5,7 +5,7 @@ create table if not exists public.rooms (
   slug text not null unique,
   name text not null,
   creator_participant_id uuid,
-  status text not null default 'active' check (status in ('waiting', 'active', 'ended')),
+  status text not null default 'waiting' check (status in ('waiting', 'active', 'ended')),
   current_phase text not null default 'reflect' check (current_phase in ('reflect', 'group', 'vote', 'discuss', 'writing', 'voting', 'discussion', 'finished')),
   hide_cards_during_writing boolean not null default false,
   cards_revealed boolean not null default false,
@@ -129,6 +129,8 @@ create table if not exists public.action_items (
   title text not null,
   assignee_participant_id uuid references public.participants(id) on delete set null,
   status text not null default 'todo' check (status in ('todo', 'done')),
+  notes text,
+  position integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (card_id)
@@ -143,6 +145,7 @@ create index if not exists votes_room_id_participant_id_idx on public.votes(room
 create index if not exists comments_room_id_card_id_idx on public.comments(room_id, card_id);
 create index if not exists reactions_room_id_card_id_idx on public.reactions(room_id, card_id);
 create index if not exists action_items_room_id_idx on public.action_items(room_id);
+create index if not exists action_items_room_id_position_idx on public.action_items(room_id, position);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -240,13 +243,10 @@ begin
   set status = case
     when current_phase in ('finished') then 'ended'
     when current_phase in ('group', 'vote', 'voting', 'discussion', 'discuss') then 'active'
-    else coalesce(status, 'active')
+    else coalesce(status, 'waiting')
   end
   where status is null;
-  update public.rooms
-  set status = 'active'
-  where status = 'waiting';
-  alter table public.rooms alter column status set default 'active';
+  alter table public.rooms alter column status set default 'waiting';
   alter table public.rooms alter column status set not null;
 
   alter table public.rooms drop constraint if exists rooms_status_check;
@@ -273,6 +273,8 @@ begin
 
   alter table public.cards add column if not exists group_id uuid;
   alter table public.cards add column if not exists position integer not null default 0;
+  alter table public.action_items add column if not exists notes text;
+  alter table public.action_items add column if not exists position integer not null default 0;
 
   if not exists (
     select 1

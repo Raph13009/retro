@@ -8,7 +8,8 @@ import {
   type CollisionDetection
 } from "@dnd-kit/core";
 import { useState } from "react";
-import type { CardGroup, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
+import type { ActionItem, CardGroup, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
+import { ActionsColumn } from "@/components/retro/ActionsColumn";
 import { GroupColumn } from "@/components/retro/GroupColumn";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ type GroupBoardProps = {
   participants: Participant[];
   votes: Vote[];
   reactions: Reaction[];
+  actionItems: ActionItem[];
   canAddCards: boolean;
   currentParticipantId: string;
   voteLimit: number;
@@ -33,6 +35,8 @@ type GroupBoardProps = {
   onUngroupCard: (card: RetroCard) => void;
   onVoteCard: (card: RetroCard) => void;
   onReact: (card: RetroCard, emoji: string) => void;
+  onCreateActionItemFromCard: (card: RetroCard) => void;
+  onUpdateActionItem: (item: ActionItem, patch: Partial<ActionItem>) => void;
 };
 
 const collisionDetection: CollisionDetection = (args) => {
@@ -60,6 +64,7 @@ export function GroupBoard({
   participants,
   votes,
   reactions,
+  actionItems,
   canAddCards,
   currentParticipantId,
   voteLimit,
@@ -72,7 +77,9 @@ export function GroupBoard({
   onGroupCards,
   onUngroupCard,
   onVoteCard,
-  onReact
+  onReact,
+  onCreateActionItemFromCard,
+  onUpdateActionItem
 }: GroupBoardProps) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const orderedColumns = [...columns].sort((first, second) => first.sort_order - second.sort_order);
@@ -95,6 +102,13 @@ export function GroupBoard({
 
     const card = cards.find((candidate) => candidate.id === activeId.replace("card:", ""));
     if (!card) {
+      return;
+    }
+
+    if (overId === "actions-column") {
+      if (phase === "discuss") {
+        onCreateActionItemFromCard(card);
+      }
       return;
     }
 
@@ -164,6 +178,9 @@ export function GroupBoard({
             onReact={onReact}
           />
         ))}
+        {phase === "discuss" ? (
+          <ActionsColumn actionItems={actionItems} cards={cards} participants={participants} onUpdateActionItem={onUpdateActionItem} />
+        ) : null}
       </div>
       <DragOverlay zIndex={9999} dropAnimation={null}>
         {activeCard ? <CardDragOverlay card={activeCard} participant={activeParticipant} /> : null}

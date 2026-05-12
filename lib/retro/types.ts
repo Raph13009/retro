@@ -98,6 +98,8 @@ export type ActionItem = {
   title: string;
   assignee_participant_id: string | null;
   status: ActionStatus;
+  notes: string | null;
+  position: number;
   created_at: string;
   updated_at: string;
 };

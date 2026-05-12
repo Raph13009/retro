@@ -45,7 +45,11 @@ export function CardVotingControls({
   );
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+    <div
+      className="mt-3 flex flex-wrap items-center gap-1.5"
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       <button
         type="button"
         onClick={(event) => {
@@ -92,7 +96,8 @@ export function CardVotingControls({
                 <button
                   key={emoji}
                   type="button"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation();
                     onReact(card, emoji);
                     setPickerOpen(false);
                   }}

@@ -3,10 +3,14 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { AppModal } from "@/components/retro/AppModal";
+import { AppToast } from "@/components/retro/AppToast";
 import { CommentDrawer } from "@/components/retro/CommentDrawer";
+import { ConfirmModal } from "@/components/retro/ConfirmModal";
 import { EvilEye } from "@/components/retro/EvilEye";
 import { ExportSummaryModal } from "@/components/retro/ExportSummaryModal";
 import { GroupBoard } from "@/components/retro/GroupBoard";
+import { RenameGroupModal } from "@/components/retro/RenameGroupModal";
 import { RetroLayout } from "@/components/retro/RetroLayout";
 import { avatarColorForName, getStoredParticipant, storeParticipant } from "@/lib/retro/local-participant";
 import { getRemainingSeconds, timerEnded } from "@/lib/retro/timer";
@@ -38,6 +42,23 @@ function groupTitleFromCard(card: RetroCard) {
   return card.content.slice(0, 48).trim() || "New topic";
 }
 
+type ConfirmRequest = {
+  title: string;
+  text: string;
+  confirmLabel: string;
+  tone?: "primary" | "danger";
+  onConfirm: () => Promise<void> | void;
+};
+
+type TextRequest = {
+  title: string;
+  label: string;
+  initialValue: string;
+  confirmLabel: string;
+  multiline?: boolean;
+  onSubmit: (value: string) => Promise<void> | void;
+};
+
 export function RetroApp({ roomSlug }: RetroAppProps) {
   const [room, setRoom] = useState<Room | null>(null);
   const [participant, setParticipant] = useState<Participant | null>(null);
@@ -60,6 +81,9 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [showSummary, setShowSummary] = useState(false);
   const [showTimerSettings, setShowTimerSettings] = useState(false);
   const [timerDraftMinutes, setTimerDraftMinutes] = useState(5);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
+  const [textRequest, setTextRequest] = useState<TextRequest | null>(null);
+  const [groupToRename, setGroupToRename] = useState<CardGroup | null>(null);
   const operationErrorTimeoutRef = useRef<number | null>(null);
 
   const creatorRequested = useMemo(() => {
@@ -70,7 +94,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     return new URLSearchParams(window.location.search).get("creator") === "1";
   }, []);
 
-  const isCreator = Boolean(room && participant && room.creator_participant_id === participant.id);
+  const fallbackFacilitatorId = room?.creator_participant_id ?? participants[0]?.id ?? null;
+  const isCreator = Boolean(room && participant && fallbackFacilitatorId === participant.id);
   const currentPhase = room ? normalizePhase(room.current_phase) : "reflect";
 
   const showMutationError = useCallback((message: string) => {
@@ -111,7 +136,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         supabase.from("votes").select("*").eq("room_id", roomId).order("created_at"),
         supabase.from("comments").select("*").eq("room_id", roomId).order("created_at"),
         supabase.from("reactions").select("*").eq("room_id", roomId).order("created_at"),
-        supabase.from("action_items").select("*").eq("room_id", roomId).order("created_at")
+        supabase.from("action_items").select("*").eq("room_id", roomId).order("position")
       ]);
 
     if (roomResult.data) {
@@ -211,6 +236,30 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!supabase || !room || !participant || room.creator_participant_id || !isCreator) {
+      return;
+    }
+
+    const client = supabase;
+    void client.from("rooms").update({ creator_participant_id: participant.id }).eq("id", room.id);
+  }, [isCreator, participant, room]);
+
+  useEffect(() => {
+    if (!supabase || !room || cardGroups.length === 0) {
+      return;
+    }
+
+    const emptyGroupIds = cardGroups.filter((group) => !cards.some((card) => card.group_id === group.id)).map((group) => group.id);
+    if (emptyGroupIds.length === 0) {
+      return;
+    }
+
+    const client = supabase;
+    setCardGroups((currentGroups) => currentGroups.filter((group) => !emptyGroupIds.includes(group.id)));
+    void client.from("card_groups").delete().in("id", emptyGroupIds);
+  }, [cardGroups, cards, room]);
 
   useEffect(() => {
     if (!supabase || !room?.id) {
@@ -368,7 +417,24 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       setParticipant(joinedParticipant);
 
       if (creatorRequested && !room.creator_participant_id) {
-        await supabase.from("rooms").update({ creator_participant_id: joinedParticipant.id, status: "active" }).eq("id", room.id);
+        const { error: creatorError } = await supabase
+          .from("rooms")
+          .update({ creator_participant_id: joinedParticipant.id, status: "waiting" })
+          .eq("id", room.id);
+
+        if (creatorError) {
+          throw creatorError;
+        }
+
+        setRoom((currentRoom) =>
+          currentRoom
+            ? {
+                ...currentRoom,
+                creator_participant_id: joinedParticipant.id,
+                status: "waiting"
+              }
+            : currentRoom
+        );
         window.history.replaceState({}, "", `/room/${room.slug}`);
       }
 
@@ -416,10 +482,13 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function changePhase(phase: MeetingPhase) {
+    if (room?.status === "waiting" && phase !== "reflect") {
+      return false;
+    }
+
     return updateRoom({
       current_phase: phase,
-      cards_revealed: phase !== "reflect",
-      status: "active"
+      cards_revealed: phase !== "reflect"
     });
   }
 
@@ -438,13 +507,10 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
 
     const nextDuration = durationSeconds ?? room.timer_duration_seconds;
-    if (!window.confirm(`Start a ${Math.round(nextDuration / 60)} minute timer?`)) {
-      return false;
-    }
-
     const currentRemaining = getRemainingSeconds(room);
     setShowTimerSettings(false);
     return updateRoom({
+      creator_participant_id: room.creator_participant_id ?? participant?.id ?? null,
       timer_duration_seconds: nextDuration,
       timer_status: "running",
       timer_started_at: new Date().toISOString(),
@@ -454,17 +520,28 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     });
   }
 
-  async function pauseTimer() {
+  async function stopTimerAndDiscuss() {
     if (!isCreator || !room || room.timer_status !== "running") {
       return false;
     }
 
-    return updateRoom({
-      timer_status: "paused",
-      timer_started_at: null,
-      timer_paused_remaining_seconds: getRemainingSeconds(room),
-      status: "active"
+    setConfirmRequest({
+      title: "Stop the timer?",
+      text: "This will end the writing timer and move everyone to Discuss.",
+      confirmLabel: "Stop and discuss",
+      tone: "danger",
+      onConfirm: async () => {
+        await updateRoom({
+          current_phase: "discuss",
+          cards_revealed: true,
+          timer_status: "ended",
+          timer_started_at: null,
+          timer_paused_remaining_seconds: 0,
+          status: "active"
+        });
+      }
     });
+    return true;
   }
 
   async function resetTimer() {
@@ -512,23 +589,32 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return false;
     }
 
-    if (!window.confirm("Close this room? It will disappear from ongoing retros.")) {
-      return false;
-    }
-
-    setShowSummary(true);
-    return updateRoom({
-      status: "ended",
-      current_phase: "discuss",
-      cards_revealed: true,
-      timer_status: "ended",
-      timer_started_at: null,
-      timer_paused_remaining_seconds: 0
+    setConfirmRequest({
+      title: "End this retro?",
+      text: "This will close the session and remove it from ongoing retros.",
+      confirmLabel: "End retro",
+      tone: "danger",
+      onConfirm: async () => {
+        setShowSummary(true);
+        await updateRoom({
+          status: "ended",
+          current_phase: "discuss",
+          cards_revealed: true,
+          timer_status: "ended",
+          timer_started_at: null,
+          timer_paused_remaining_seconds: 0
+        });
+      }
     });
+    return true;
   }
 
   async function addCard(columnId: string, content: string) {
     if (!supabase || !room || !participant) {
+      return false;
+    }
+
+    if (normalizePhase(room.current_phase) !== "reflect" || room.status !== "active" || room.timer_status === "idle" || room.timer_status === "ended") {
       return false;
     }
 
@@ -566,17 +652,21 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
 
     const client = supabase;
-    const nextContent = window.prompt("Edit card", card.content);
-    if (!nextContent?.trim()) {
-      return;
-    }
-
-    await performMutation(async () => {
-      const { error: updateError } = await client.from("cards").update({ content: nextContent.trim() }).eq("id", card.id);
-      if (updateError) {
-        throw updateError;
+    setTextRequest({
+      title: "Edit card",
+      label: "Card content",
+      initialValue: card.content,
+      confirmLabel: "Save",
+      multiline: true,
+      onSubmit: async (nextContent) => {
+        await performMutation(async () => {
+          const { error: updateError } = await client.from("cards").update({ content: nextContent }).eq("id", card.id);
+          if (updateError) {
+            throw updateError;
+          }
+        }, "Card update failed");
       }
-    }, "Card update failed");
+    });
   }
 
   async function deleteCard(card: RetroCard) {
@@ -585,17 +675,21 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
 
     const client = supabase;
-    if (!window.confirm("Delete this card?")) {
-      return;
-    }
-
-    await performMutation(async () => {
-      const { error: deleteError } = await client.from("cards").delete().eq("id", card.id);
-      if (deleteError) {
-        throw deleteError;
+    setConfirmRequest({
+      title: "Delete this card?",
+      text: "This card will be removed for everyone in the retro.",
+      confirmLabel: "Delete card",
+      tone: "danger",
+      onConfirm: async () => {
+        await performMutation(async () => {
+          const { error: deleteError } = await client.from("cards").delete().eq("id", card.id);
+          if (deleteError) {
+            throw deleteError;
+          }
+          setCards((currentCards) => currentCards.filter((currentCard) => currentCard.id !== card.id));
+        }, "Card deletion failed");
       }
-      setCards((currentCards) => currentCards.filter((currentCard) => currentCard.id !== card.id));
-    }, "Card deletion failed");
+    });
   }
 
   async function moveCard(card: RetroCard, columnId: string) {
@@ -779,14 +873,17 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
-    const client = supabase;
-    const title = window.prompt("Rename group", group.title);
-    if (!title?.trim()) {
+    setGroupToRename(group);
+  }
+
+  async function saveGroupTitle(group: CardGroup, title: string) {
+    if (!supabase || !room) {
       return;
     }
 
+    const client = supabase;
     await performMutation(async () => {
-      const { error: updateError } = await client.from("card_groups").update({ title: title.trim() }).eq("id", group.id);
+      const { error: updateError } = await client.from("card_groups").update({ title }).eq("id", group.id);
       if (updateError) {
         throw updateError;
       }
@@ -918,21 +1015,24 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
     const client = supabase;
     const roomId = room.id;
-    const title = window.prompt("Column name");
-    if (!title?.trim()) {
-      return;
-    }
-
-    await performMutation(async () => {
-      const { error: insertError } = await client.from("columns").insert({
-        room_id: roomId,
-        title: title.trim(),
-        sort_order: columns.length
-      });
-      if (insertError) {
-        throw insertError;
+    setTextRequest({
+      title: "Add column",
+      label: "Column name",
+      initialValue: "",
+      confirmLabel: "Create",
+      onSubmit: async (title) => {
+        await performMutation(async () => {
+          const { error: insertError } = await client.from("columns").insert({
+            room_id: roomId,
+            title,
+            sort_order: columns.length
+          });
+          if (insertError) {
+            throw insertError;
+          }
+        }, "Column creation failed");
       }
-    }, "Column creation failed");
+    });
   }
 
   async function renameColumn(column: RetroColumn) {
@@ -941,17 +1041,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
 
     const client = supabase;
-    const title = window.prompt("Rename column", column.title);
-    if (!title?.trim()) {
-      return;
-    }
-
-    await performMutation(async () => {
-      const { error: updateError } = await client.from("columns").update({ title: title.trim() }).eq("id", column.id);
-      if (updateError) {
-        throw updateError;
+    setTextRequest({
+      title: "Rename column",
+      label: "Column name",
+      initialValue: column.title,
+      confirmLabel: "Save",
+      onSubmit: async (title) => {
+        await performMutation(async () => {
+          const { error: updateError } = await client.from("columns").update({ title }).eq("id", column.id);
+          if (updateError) {
+            throw updateError;
+          }
+        }, "Column rename failed");
       }
-    }, "Column rename failed");
+    });
   }
 
   async function deleteColumn(column: RetroColumn) {
@@ -960,16 +1063,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
 
     const client = supabase;
-    if (!window.confirm("Delete this column and its cards?")) {
-      return;
-    }
-
-    await performMutation(async () => {
-      const { error: deleteError } = await client.from("columns").delete().eq("id", column.id);
-      if (deleteError) {
-        throw deleteError;
+    setConfirmRequest({
+      title: "Delete this column?",
+      text: "This will delete the column and all of its cards for everyone.",
+      confirmLabel: "Delete column",
+      tone: "danger",
+      onConfirm: async () => {
+        await performMutation(async () => {
+          const { error: deleteError } = await client.from("columns").delete().eq("id", column.id);
+          if (deleteError) {
+            throw deleteError;
+          }
+        }, "Column deletion failed");
       }
-    }, "Column deletion failed");
+    });
   }
 
   async function moveColumn(column: RetroColumn, direction: -1 | 1) {
@@ -998,6 +1105,76 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         throw targetResult.error;
       }
     }, "Column reorder failed");
+  }
+
+  async function createActionItemFromCard(card: RetroCard) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    const existingItem = actionItems.find((item) => item.card_id === card.id);
+    if (existingItem) {
+      showMutationError("This card is already in Actions.");
+      return;
+    }
+
+    const client = supabase;
+    const position = nextPosition();
+    const optimisticItem: ActionItem = {
+      id: crypto.randomUUID(),
+      room_id: room.id,
+      card_id: card.id,
+      title: card.content,
+      assignee_participant_id: null,
+      status: "todo",
+      notes: null,
+      position,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    setActionItems((currentItems) => [...currentItems, optimisticItem]);
+    await performMutation(async () => {
+      const { error: insertError } = await client.from("action_items").insert({
+        id: optimisticItem.id,
+        room_id: room.id,
+        card_id: card.id,
+        title: card.content,
+        status: "todo",
+        notes: null,
+        position
+      });
+
+      if (insertError) {
+        throw insertError;
+      }
+    }, "Action item creation failed");
+  }
+
+  async function updateActionItem(item: ActionItem, patch: Partial<ActionItem>) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    const client = supabase;
+    const allowedPatch = Object.fromEntries(
+      Object.entries({
+        title: patch.title,
+        assignee_participant_id: patch.assignee_participant_id,
+        status: patch.status,
+        notes: patch.notes,
+        position: patch.position
+      }).filter(([, value]) => value !== undefined)
+    );
+    setActionItems((currentItems) =>
+      currentItems.map((currentItem) => (currentItem.id === item.id ? { ...currentItem, ...allowedPatch } : currentItem))
+    );
+
+    await performMutation(async () => {
+      const { error: updateError } = await client.from("action_items").update(allowedPatch).eq("id", item.id);
+      if (updateError) {
+        throw updateError;
+      }
+    }, "Action item update failed");
   }
 
   async function voteCard(card: RetroCard) {
@@ -1167,7 +1344,9 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       const { error: insertError } = await client.from("action_items").insert({
         room_id: roomId,
         card_id: card.id,
-        title: card.content
+        title: card.content,
+        notes: null,
+        position: nextPosition()
       });
       if (insertError) {
         throw insertError;
@@ -1316,16 +1495,11 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       phase={currentPhase}
       isCreator={isCreator}
       remainingSeconds={remainingSeconds}
-      votes={votes}
-      currentParticipantId={participant.id}
       onPhaseChange={changePhase}
       onVoteLimitChange={updateVoteLimit}
       onOpenTimerSettings={openTimerSettings}
-      onPauseTimer={() => {
-        void pauseTimer();
-      }}
-      onResetTimer={() => {
-        void resetTimer();
+      onStopTimer={() => {
+        void stopTimerAndDiscuss();
       }}
       onConfirmDiscuss={() => {
         void confirmDiscuss();
@@ -1339,11 +1513,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           Time is up. Facilitator can switch to Discuss.
         </div>
       ) : null}
-      {operationError ? (
-        <div className="fixed right-5 top-5 z-30 max-w-md rounded-2xl border border-red-300/20 bg-red-500/15 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur-xl">
-          {operationError}
-        </div>
-      ) : null}
+      <AppToast message={operationError} onClose={() => setOperationError("")} />
+      <ConfirmModal
+        open={Boolean(confirmRequest)}
+        title={confirmRequest?.title ?? ""}
+        text={confirmRequest?.text ?? ""}
+        confirmLabel={confirmRequest?.confirmLabel ?? "Confirm"}
+        tone={confirmRequest?.tone}
+        onCancel={() => setConfirmRequest(null)}
+        onConfirm={async () => {
+          await confirmRequest?.onConfirm();
+        }}
+      />
+      <TextInputModal request={textRequest} onClose={() => setTextRequest(null)} />
+      <RenameGroupModal group={groupToRename} onClose={() => setGroupToRename(null)} onSave={saveGroupTitle} />
       {showTimerSettings ? (
         <TimerSettingsModal
           minutes={timerDraftMinutes}
@@ -1352,6 +1535,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           onStart={() => {
             void startTimer(timerDraftMinutes * 60);
           }}
+          startLabel={room.status === "waiting" ? "Start retro" : "Start timer"}
         />
       ) : null}
       {isCreator && room.timer_status === "ended" && currentPhase !== "discuss" && room.status !== "ended" ? (
@@ -1372,7 +1556,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         participants={participants}
         votes={votes}
         reactions={reactions}
-        canAddCards={currentPhase === "reflect" && room.timer_status !== "ended"}
+        actionItems={actionItems}
+        canAddCards={currentPhase === "reflect" && room.status === "active" && room.timer_status !== "idle" && room.timer_status !== "ended"}
         currentParticipantId={participant.id}
         voteLimit={getVoteLimit(room)}
         onAddCard={addCard}
@@ -1385,6 +1570,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         onUngroupCard={ungroupCard}
         onVoteCard={voteCard}
         onReact={reactToCard}
+        onCreateActionItemFromCard={createActionItemFromCard}
+        onUpdateActionItem={updateActionItem}
       />
 
       <CommentDrawer
@@ -1408,15 +1595,73 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   );
 }
 
+function TextInputModal({ request, onClose }: { request: TextRequest | null; onClose: () => void }) {
+  const [value, setValue] = useState(request?.initialValue ?? "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setValue(request?.initialValue ?? "");
+  }, [request]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedValue = value.trim();
+    if (!request || !trimmedValue) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    await request.onSubmit(trimmedValue);
+    setIsSubmitting(false);
+    onClose();
+  }
+
+  return (
+    <AppModal open={Boolean(request)} eyebrow="Edit" title={request?.title ?? ""} onClose={onClose}>
+      <form onSubmit={submit}>
+        <label className="block">
+          <span className="mb-2 block text-sm font-bold text-slate-700">{request?.label}</span>
+          {request?.multiline ? (
+            <textarea
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              rows={4}
+              className="w-full resize-none rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-violet-400"
+              autoFocus
+            />
+          ) : (
+            <input
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              className="w-full rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-violet-400"
+              autoFocus
+            />
+          )}
+        </label>
+        <div className="mt-6 grid grid-cols-2 gap-2">
+          <button type="button" onClick={onClose} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-extrabold text-slate-600">
+            Cancel
+          </button>
+          <button type="submit" disabled={!value.trim() || isSubmitting} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg disabled:opacity-60">
+            {isSubmitting ? "Saving..." : request?.confirmLabel}
+          </button>
+        </div>
+      </form>
+    </AppModal>
+  );
+}
+
 function TimerSettingsModal({
   minutes,
   onMinutesChange,
   onClose,
+  startLabel,
   onStart
 }: {
   minutes: number;
   onMinutesChange: (minutes: number) => void;
   onClose: () => void;
+  startLabel: string;
   onStart: () => void;
 }) {
   return (
@@ -1438,12 +1683,12 @@ function TimerSettingsModal({
           />
         </label>
 
-        <div className="mt-6 flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-extrabold text-slate-600">
+        <div className="mt-6 grid gap-2 sm:grid-cols-[0.9fr_1.3fr]">
+          <button type="button" onClick={onClose} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-extrabold text-slate-600">
             Cancel
           </button>
-          <button type="button" onClick={onStart} className="flex-[1.5] rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg">
-            Start timer
+          <button type="button" onClick={onStart} className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white shadow-lg">
+            {startLabel}
           </button>
         </div>
       </div>

@@ -53,7 +53,7 @@ export default function HomePage() {
         .insert({
           name: trimmedName,
           slug,
-          status: "active",
+          status: "waiting",
           vote_limit: 3,
           vote_limit_per_participant: 3,
           timer_duration_seconds: 300,

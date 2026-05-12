@@ -9,15 +9,15 @@ import { getRemainingSeconds } from "@/lib/retro/timer";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 import { cn, formatTime } from "@/lib/utils";
 
-type ActiveRoom = Room & {
+type DiscoverableRoom = Room & {
   participants: Participant[];
 };
 
 export function OngoingRetrosSection() {
-  const [rooms, setRooms] = useState<ActiveRoom[]>([]);
+  const [rooms, setRooms] = useState<DiscoverableRoom[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadActiveRooms = useCallback(async () => {
+  const loadDiscoverableRooms = useCallback(async () => {
     if (!supabase) {
       return;
     }
@@ -34,8 +34,8 @@ export function OngoingRetrosSection() {
       return;
     }
 
-    const activeRooms = ((roomData ?? []) as Room[]).filter((room) => room.status === "active");
-    const roomIds = activeRooms.map((room) => room.id);
+    const discoverableRooms = ((roomData ?? []) as Room[]).filter((room) => room.status === "waiting" || room.status === "active");
+    const roomIds = discoverableRooms.map((room) => room.id);
     const { data: participantsData } =
       roomIds.length > 0
         ? await supabase.from("participants").select("*").in("room_id", roomIds).order("created_at")
@@ -43,7 +43,7 @@ export function OngoingRetrosSection() {
     const participants = (participantsData ?? []) as Participant[];
 
     setRooms(
-      activeRooms.map((room) => ({
+      discoverableRooms.map((room) => ({
         ...room,
         participants: participants.filter((participant) => participant.room_id === room.id)
       }))
@@ -57,21 +57,21 @@ export function OngoingRetrosSection() {
     }
 
     const client = supabase;
-    void loadActiveRooms();
+    void loadDiscoverableRooms();
     const channel = client
       .channel("homepage-ongoing-retros")
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, () => {
-        void loadActiveRooms();
+        void loadDiscoverableRooms();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "participants" }, () => {
-        void loadActiveRooms();
+        void loadDiscoverableRooms();
       })
       .subscribe();
 
     return () => {
       void client.removeChannel(channel);
     };
-  }, [loadActiveRooms]);
+  }, [loadDiscoverableRooms]);
 
   return (
     <section className="relative mx-auto w-full max-w-6xl px-0 pb-14">
@@ -82,14 +82,14 @@ export function OngoingRetrosSection() {
             Live activity
           </div>
           <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-white">Ongoing retros</h2>
-          <p className="mt-2 text-sm text-slate-300">Jump into active squad sessions.</p>
+          <p className="mt-2 text-sm text-slate-300">Join rooms waiting to start or already live.</p>
         </div>
         {isLoading ? <p className="text-sm font-medium text-slate-400">Refreshing rooms...</p> : null}
       </div>
 
       {!hasSupabaseEnv ? (
         <div className="liquid-surface rounded-[1.75rem] p-5 text-sm font-medium text-slate-300">
-          Add Supabase env vars to see active rooms.
+          Add Supabase env vars to see rooms.
         </div>
       ) : rooms.length === 0 ? (
         <div className="liquid-surface rounded-[1.75rem] border border-white/10 p-6 text-sm font-semibold text-slate-300">
@@ -106,9 +106,14 @@ export function OngoingRetrosSection() {
   );
 }
 
-function ActiveRetroCard({ room }: { room: ActiveRoom }) {
+function ActiveRetroCard({ room }: { room: DiscoverableRoom }) {
   const currentPhase = normalizePhase(room.current_phase);
-  const timerLabel = room.timer_status === "running" ? formatTime(getRemainingSeconds(room)) : formatTime(room.timer_paused_remaining_seconds);
+  const waiting = room.status === "waiting";
+  const timerLabel = waiting
+    ? "Not started"
+    : room.timer_status === "running"
+      ? formatTime(getRemainingSeconds(room))
+      : formatTime(room.timer_paused_remaining_seconds);
 
   return (
     <Link
@@ -119,13 +124,26 @@ function ActiveRetroCard({ room }: { room: ActiveRoom }) {
         "hover:-translate-y-0.5 hover:border-violet-200/40 hover:bg-white/14 hover:shadow-violet-500/20"
       )}
     >
-      <div className="absolute right-4 top-4 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.95)]" />
+      <div
+        className={cn(
+          "absolute right-4 top-4 h-2.5 w-2.5 rounded-full",
+          waiting ? "bg-amber-300 shadow-[0_0_18px_rgba(252,211,77,0.9)]" : "bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,0.95)]"
+        )}
+      />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="truncate text-lg font-semibold tracking-[-0.03em] text-white">{room.name}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-violet-100/90 px-2.5 py-1 text-xs font-extrabold text-violet-800">
               {phaseLabel(currentPhase)}
+            </span>
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-1 text-xs font-extrabold",
+                waiting ? "bg-amber-100/90 text-amber-800" : "bg-emerald-100/90 text-emerald-800"
+              )}
+            >
+              {waiting ? "Waiting" : "Live"}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-slate-200">
               <Clock3 className="h-3.5 w-3.5" />

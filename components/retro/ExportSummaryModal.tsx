@@ -114,9 +114,16 @@ function buildMarkdownSummary({
   if (actionItems.length === 0) {
     lines.push("- No action items");
   } else {
-    actionItems.forEach((item) => {
+    [...actionItems].sort((first, second) => first.position - second.position).forEach((item) => {
       const assignee = participants.find((participant) => participant.id === item.assignee_participant_id);
-      lines.push(`- [${item.status === "done" ? "x" : " "}] ${item.title}${assignee ? ` - ${assignee.name}` : ""}`);
+      const sourceCard = item.card_id ? cards.find((card) => card.id === item.card_id) : null;
+      lines.push(`- [${item.status === "done" ? "x" : " "}] ${item.title}${assignee ? ` - ${assignee.name}` : " - Unassigned"}`);
+      if (sourceCard) {
+        lines.push(`  - Source: ${sourceCard.content.replace(/\n/g, " ")}`);
+      }
+      if (item.notes) {
+        lines.push(`  - Notes: ${item.notes.replace(/\n/g, " ")}`);
+      }
     });
   }
 
