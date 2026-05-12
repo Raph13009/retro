@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { ImageTrail } from "@/components/retro/ImageTrail";
-import { OngoingRetrosSection } from "@/components/retro/OngoingRetrosSection";
 import { DEFAULT_COLUMNS } from "@/lib/retro/types";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 import { cn, randomRoomSlug } from "@/lib/utils";
@@ -86,14 +86,14 @@ export default function HomePage() {
   }
 
   return (
-    <main className="relative h-dvh overflow-y-auto px-6 py-10 text-slate-100">
+    <main className="relative h-dvh overflow-hidden px-6 py-10 text-slate-100">
       <ImageTrail items={homeTrailImages} variant={5} />
-      <section className="relative mx-auto flex min-h-[calc(100dvh-5rem)] max-w-6xl items-center">
+      <section className="relative mx-auto flex h-full max-w-6xl items-center">
         <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-sm text-slate-300 shadow-sm backdrop-blur-xl">
               <Sparkles className="h-4 w-4 text-cyan-200" />
-              Built by the most efficient squad: Partner Squad
+              Built between two Partner Squad tickets
             </div>
             <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-white md:text-7xl">
               Finally a decent retro tool
@@ -101,6 +101,13 @@ export default function HomePage() {
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
               Create rooms, group cards, vote together and actually move forward.
             </p>
+            <Link
+              href="/ongoing"
+              className="ghost-button mt-8 inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold"
+            >
+              Join ongoing retro
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
           <div className="liquid-panel rounded-[2rem] p-6">
@@ -145,7 +152,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      <OngoingRetrosSection />
     </main>
   );
 }
