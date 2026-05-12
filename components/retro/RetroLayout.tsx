@@ -16,7 +16,11 @@ type RetroLayoutProps = {
   currentParticipantId: string;
   onPhaseChange: (phase: MeetingPhase) => void;
   onVoteLimitChange: (limit: number) => void;
-  onEndMeeting: () => void;
+  onStartTimer: () => void;
+  onPauseTimer: () => void;
+  onResetTimer: () => void;
+  onConfirmDiscuss: () => void;
+  onCloseRoom: () => void;
   children: ReactNode;
 };
 
@@ -32,7 +36,11 @@ export function RetroLayout({
   currentParticipantId,
   onPhaseChange,
   onVoteLimitChange,
-  onEndMeeting,
+  onStartTimer,
+  onPauseTimer,
+  onResetTimer,
+  onConfirmDiscuss,
+  onCloseRoom,
   children
 }: RetroLayoutProps) {
   return (
@@ -58,7 +66,11 @@ export function RetroLayout({
         isCreator={isCreator}
         onPhaseChange={onPhaseChange}
         onVoteLimitChange={onVoteLimitChange}
-        onEndMeeting={onEndMeeting}
+        onStartTimer={onStartTimer}
+        onPauseTimer={onPauseTimer}
+        onResetTimer={onResetTimer}
+        onConfirmDiscuss={onConfirmDiscuss}
+        onCloseRoom={onCloseRoom}
       />
     </main>
   );

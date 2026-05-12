@@ -5,7 +5,7 @@ create table if not exists public.rooms (
   slug text not null unique,
   name text not null,
   creator_participant_id uuid,
-  status text not null default 'waiting' check (status in ('waiting', 'active', 'ended')),
+  status text not null default 'active' check (status in ('waiting', 'active', 'ended')),
   current_phase text not null default 'reflect' check (current_phase in ('reflect', 'group', 'vote', 'discuss', 'writing', 'voting', 'discussion', 'finished')),
   hide_cards_during_writing boolean not null default false,
   cards_revealed boolean not null default false,
@@ -240,10 +240,13 @@ begin
   set status = case
     when current_phase in ('finished') then 'ended'
     when current_phase in ('group', 'vote', 'voting', 'discussion', 'discuss') then 'active'
-    else coalesce(status, 'waiting')
+    else coalesce(status, 'active')
   end
   where status is null;
-  alter table public.rooms alter column status set default 'waiting';
+  update public.rooms
+  set status = 'active'
+  where status = 'waiting';
+  alter table public.rooms alter column status set default 'active';
   alter table public.rooms alter column status set not null;
 
   alter table public.rooms drop constraint if exists rooms_status_check;

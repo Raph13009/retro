@@ -366,7 +366,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       setParticipant(joinedParticipant);
 
       if (creatorRequested && !room.creator_participant_id) {
-        await supabase.from("rooms").update({ creator_participant_id: joinedParticipant.id }).eq("id", room.id);
+        await supabase.from("rooms").update({ creator_participant_id: joinedParticipant.id, status: "active" }).eq("id", room.id);
         window.history.replaceState({}, "", `/room/${room.slug}`);
       }
 
@@ -421,9 +421,77 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     });
   }
 
-  async function endMeeting() {
+  async function startTimer() {
+    if (!isCreator || !room) {
+      return false;
+    }
+
+    const currentRemaining = getRemainingSeconds(room);
+    return updateRoom({
+      timer_status: "running",
+      timer_started_at: new Date().toISOString(),
+      timer_paused_remaining_seconds: currentRemaining > 0 ? currentRemaining : room.timer_duration_seconds,
+      status: "active"
+    });
+  }
+
+  async function pauseTimer() {
+    if (!isCreator || !room || room.timer_status !== "running") {
+      return false;
+    }
+
+    return updateRoom({
+      timer_status: "paused",
+      timer_started_at: null,
+      timer_paused_remaining_seconds: getRemainingSeconds(room),
+      status: "active"
+    });
+  }
+
+  async function resetTimer() {
+    if (!isCreator || !room) {
+      return false;
+    }
+
+    return updateRoom({
+      timer_status: "idle",
+      timer_started_at: null,
+      timer_paused_remaining_seconds: room.timer_duration_seconds,
+      cards_revealed: normalizePhase(room.current_phase) !== "reflect",
+      status: "active"
+    });
+  }
+
+  async function confirmDiscuss() {
+    if (!isCreator) {
+      return false;
+    }
+
+    return updateRoom({
+      current_phase: "discuss",
+      cards_revealed: true,
+      status: "active"
+    });
+  }
+
+  async function closeRoom() {
+    if (!isCreator) {
+      return false;
+    }
+
+    if (!window.confirm("Close this room? It will disappear from ongoing retros.")) {
+      return false;
+    }
+
     setShowSummary(true);
-    await updateRoom({ status: "ended", current_phase: "discuss", cards_revealed: true });
+    return updateRoom({
+      status: "ended",
+      current_phase: "discuss",
+      cards_revealed: true,
+      timer_status: "ended",
+      timer_started_at: null,
+      timer_paused_remaining_seconds: 0
+    });
   }
 
   async function addCard(columnId: string, content: string) {
@@ -1219,13 +1287,25 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       currentParticipantId={participant.id}
       onPhaseChange={changePhase}
       onVoteLimitChange={updateVoteLimit}
-      onEndMeeting={() => {
-        void endMeeting();
+      onStartTimer={() => {
+        void startTimer();
+      }}
+      onPauseTimer={() => {
+        void pauseTimer();
+      }}
+      onResetTimer={() => {
+        void resetTimer();
+      }}
+      onConfirmDiscuss={() => {
+        void confirmDiscuss();
+      }}
+      onCloseRoom={() => {
+        void closeRoom();
       }}
     >
       {room.timer_status === "ended" ? (
         <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
-          Time is up. Cards are revealed.
+          Time is up. Facilitator can switch to Discuss.
         </div>
       ) : null}
       {operationError ? (

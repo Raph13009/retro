@@ -1,4 +1,4 @@
-import { Lightbulb, Music2, Square, Timer, UsersRound, Vote as VoteIcon } from "lucide-react";
+import { Lightbulb, Music2, Pause, Play, RotateCcw, Square, Timer, UsersRound, Vote as VoteIcon } from "lucide-react";
 import type { MeetingPhase, Participant, Room, Vote } from "@/lib/retro/types";
 import { getVoteLimit, MEETING_PHASES, phaseLabel } from "@/lib/retro/types";
 import { formatTime } from "@/lib/utils";
@@ -13,7 +13,11 @@ type BottomMeetingBarProps = {
   isCreator: boolean;
   onPhaseChange: (phase: MeetingPhase) => void;
   onVoteLimitChange: (limit: number) => void;
-  onEndMeeting: () => void;
+  onStartTimer: () => void;
+  onPauseTimer: () => void;
+  onResetTimer: () => void;
+  onConfirmDiscuss: () => void;
+  onCloseRoom: () => void;
 };
 
 export function BottomMeetingBar({
@@ -26,12 +30,17 @@ export function BottomMeetingBar({
   isCreator,
   onPhaseChange,
   onVoteLimitChange,
-  onEndMeeting
+  onStartTimer,
+  onPauseTimer,
+  onResetTimer,
+  onConfirmDiscuss,
+  onCloseRoom
 }: BottomMeetingBarProps) {
   const currentIndex = MEETING_PHASES.indexOf(phase);
   const nextPhase = MEETING_PHASES[currentIndex + 1];
   const voteLimit = getVoteLimit(room);
   const usedVotes = votes.filter((vote) => vote.participant_id === currentParticipantId).length;
+  const timerLabel = room.timer_status === "running" || room.timer_status === "paused" || room.timer_status === "ended" ? formatTime(remainingSeconds) : "Timer";
 
   return (
     <div className="pointer-events-none fixed bottom-5 left-[260px] right-0 z-30 flex justify-center px-6">
@@ -42,8 +51,34 @@ export function BottomMeetingBar({
         </button>
         <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50" type="button">
           <Timer className="h-4 w-4 text-violet-500" />
-          {room.timer_status === "running" ? formatTime(remainingSeconds) : "Timer"}
+          {timerLabel}
         </button>
+        {isCreator ? (
+          <>
+            {room.timer_status === "running" ? (
+              <button type="button" onClick={onPauseTimer} className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50">
+                <Pause className="h-4 w-4 text-violet-500" />
+                Pause
+              </button>
+            ) : room.timer_status === "ended" ? (
+              <button
+                type="button"
+                onClick={onConfirmDiscuss}
+                className="rounded-full bg-violet-600 px-4 py-2 text-white shadow-lg shadow-violet-300/40"
+              >
+                Discuss
+              </button>
+            ) : (
+              <button type="button" onClick={onStartTimer} className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50">
+                <Play className="h-4 w-4 text-violet-500" />
+                Start
+              </button>
+            )}
+            <button type="button" onClick={onResetTimer} className="grid h-9 w-9 place-items-center rounded-full hover:bg-violet-50" aria-label="Reset timer">
+              <RotateCcw className="h-4 w-4 text-violet-500" />
+            </button>
+          </>
+        ) : null}
         <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50" type="button">
           <Lightbulb className="h-4 w-4 text-violet-500" />
           Tips
@@ -79,14 +114,16 @@ export function BottomMeetingBar({
             Next: {phaseLabel(nextPhase)}
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={onEndMeeting}
-          className="flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-white shadow-lg shadow-rose-300/40"
-        >
-          <Square className="h-3.5 w-3.5 fill-current" />
-          End Meeting
-        </button>
+        {isCreator ? (
+          <button
+            type="button"
+            onClick={onCloseRoom}
+            className="flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-white shadow-lg shadow-rose-300/40"
+          >
+            <Square className="h-3.5 w-3.5 fill-current" />
+            Close room
+          </button>
+        ) : null}
       </div>
     </div>
   );
