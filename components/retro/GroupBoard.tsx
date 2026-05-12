@@ -26,7 +26,6 @@ type GroupBoardProps = {
   currentParticipantId: string;
   voteLimit: number;
   onAddCard: (columnId: string, content: string) => Promise<boolean>;
-  onCreateGroup: (columnId: string, card?: RetroCard) => Promise<boolean> | void;
   onRenameGroup: (group: CardGroup) => void;
   onDeleteGroup: (group: CardGroup) => void;
   onMoveCardToGroup: (card: RetroCard, group: CardGroup) => void;
@@ -69,7 +68,6 @@ export function GroupBoard({
   currentParticipantId,
   voteLimit,
   onAddCard,
-  onCreateGroup,
   onRenameGroup,
   onDeleteGroup,
   onMoveCardToGroup,
@@ -170,7 +168,6 @@ export function GroupBoard({
             voteLimit={voteLimit}
             maxVoteCount={maxVoteCount}
             onAddCard={onAddCard}
-            onCreateGroup={onCreateGroup}
             onRenameGroup={onRenameGroup}
             onDeleteGroup={onDeleteGroup}
             onUngroupCard={onUngroupCard}

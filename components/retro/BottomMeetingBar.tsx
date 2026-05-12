@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Lightbulb, Music2, Play, Square, Timer, UsersRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Lightbulb, Music2, Pause, Play, Square, Timer, UsersRound } from "lucide-react";
 import type { MeetingPhase, Participant, Room } from "@/lib/retro/types";
 import { getVoteLimit } from "@/lib/retro/types";
 import { cn, formatTime } from "@/lib/utils";
@@ -17,6 +17,14 @@ type BottomMeetingBarProps = {
   onCloseRoom: () => void;
   sidebarCollapsed: boolean;
 };
+
+const MUSIC_TRACKS = [
+  { id: "marseille", label: "Marseille", icon: "☀️", src: "/music/marseille-music.mp3", startAtSeconds: 0 },
+  { id: "casa", label: "Casa", icon: "🇲🇦", src: "/music/casa.mp3", startAtSeconds: 10 },
+  { id: "south-america", label: "South America", icon: "🌎", src: "/music/south-america.mp3", startAtSeconds: 10 }
+] as const;
+
+type MusicTrack = (typeof MUSIC_TRACKS)[number];
 
 export function BottomMeetingBar({
   room,
@@ -43,10 +51,7 @@ export function BottomMeetingBar({
           sidebarCollapsed ? "max-w-[calc(100vw-120px)]" : "max-w-[calc(100vw-300px)]"
         )}
       >
-        <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50" type="button">
-          <Music2 className="h-4 w-4 text-violet-500" />
-          Music
-        </button>
+        <MusicPicker />
         <button
           className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
           type="button"
@@ -107,6 +112,142 @@ export function BottomMeetingBar({
           </button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function MusicPicker() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    return () => {
+      const audio = audioRef.current;
+      if (!audio) {
+        return;
+      }
+
+      audio.pause();
+      audio.onended = null;
+      audio.onpause = null;
+      audio.onplay = null;
+      audio.src = "";
+      audioRef.current = null;
+    };
+  }, []);
+
+  function ensureAudio() {
+    if (!audioRef.current) {
+      const audio = new Audio();
+      audio.loop = true;
+      audio.onended = () => setPlaying(false);
+      audio.onpause = () => setPlaying(false);
+      audio.onplay = () => setPlaying(true);
+      audioRef.current = audio;
+    }
+
+    return audioRef.current;
+  }
+
+  function selectTrack(track: MusicTrack) {
+    setSelectedTrack(track);
+    setMessage("");
+
+    const audio = ensureAudio();
+    if (audio.src !== new URL(track.src, window.location.origin).href) {
+      audio.pause();
+      audio.src = track.src;
+      audio.currentTime = track.startAtSeconds;
+      setPlaying(false);
+    }
+  }
+
+  async function togglePlayback() {
+    if (!selectedTrack) {
+      setMessage("Choose a track first.");
+      return;
+    }
+
+    const audio = ensureAudio();
+    if (audio.src !== new URL(selectedTrack.src, window.location.origin).href) {
+      audio.src = selectedTrack.src;
+      audio.currentTime = selectedTrack.startAtSeconds;
+    }
+
+    if (playing) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+
+    try {
+      await audio.play();
+      setPlaying(true);
+      setMessage("");
+    } catch {
+      setMessage("Track file missing or blocked.");
+      setPlaying(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-violet-50", open && "bg-violet-50 text-violet-700")}
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Music2 className="h-4 w-4 text-violet-500" />
+        Music
+      </button>
+
+      {open ? (
+        <div className="absolute bottom-full left-0 z-50 mb-3 w-72 rounded-[1.5rem] border border-violet-100 bg-white/94 p-3 text-slate-900 shadow-[0_24px_70px_rgba(30,27,75,0.22)] backdrop-blur-2xl">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-500">Music mood</p>
+              <p className="mt-1 text-sm font-extrabold text-slate-950">
+                {selectedTrack && playing ? `Now playing: ${selectedTrack.label}` : selectedTrack ? `Selected: ${selectedTrack.label}` : "Pick a vibe"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={togglePlayback}
+              disabled={!selectedTrack}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-950 text-white shadow-lg disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+              aria-label={playing ? "Pause music" : "Play music"}
+            >
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            {MUSIC_TRACKS.map((track) => {
+              const selected = selectedTrack?.id === track.id;
+              return (
+                <button
+                  key={track.id}
+                  type="button"
+                  onClick={() => selectTrack(track)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm font-extrabold transition",
+                    selected ? "bg-violet-600 text-white shadow-lg shadow-violet-300/40" : "bg-violet-50 text-slate-700 hover:bg-violet-100"
+                  )}
+                >
+                  <span>
+                    {track.label} <span aria-hidden="true">{track.icon}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {message ? <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">{message}</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { ChevronDown, Plus, Ungroup } from "lucide-react";
+import { ChevronDown, Ungroup } from "lucide-react";
 import { CardVotingControls } from "@/components/retro/CardVotingControls";
 import { CardGroup } from "@/components/retro/CardGroup";
 import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
@@ -19,7 +19,6 @@ type GroupColumnProps = {
   voteLimit: number;
   maxVoteCount: number;
   onAddCard: (columnId: string, content: string) => Promise<boolean>;
-  onCreateGroup: (columnId: string) => void;
   onRenameGroup: (group: CardGroupType) => void;
   onDeleteGroup: (group: CardGroupType) => void;
   onUngroupCard: (card: RetroCard) => void;
@@ -42,7 +41,6 @@ export function GroupColumn({
   voteLimit,
   maxVoteCount,
   onAddCard,
-  onCreateGroup,
   onRenameGroup,
   onDeleteGroup,
   onUngroupCard,
@@ -84,14 +82,6 @@ export function GroupColumn({
           <span className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-bold text-slate-500">{cards.length}</span>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onCreateGroup(column.id)}
-            className="grid h-8 w-8 place-items-center rounded-full bg-white text-violet-700 shadow-sm hover:bg-violet-50"
-            aria-label="Add group"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}

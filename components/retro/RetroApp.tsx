@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AppModal } from "@/components/retro/AppModal";
 import { AppToast } from "@/components/retro/AppToast";
@@ -62,6 +63,7 @@ type TextRequest = {
 };
 
 export function RetroApp({ roomSlug }: RetroAppProps) {
+  const router = useRouter();
   const [room, setRoom] = useState<Room | null>(null);
   const [participant, setParticipant] = useState<Participant | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -1575,7 +1577,6 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         currentParticipantId={participant.id}
         voteLimit={getVoteLimit(room)}
         onAddCard={addCard}
-        onCreateGroup={createGroup}
         onRenameGroup={renameGroup}
         onDeleteGroup={deleteGroup}
         onMoveCardToGroup={moveCardToGroup}
@@ -1616,6 +1617,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
             timer_paused_remaining_seconds: 0
           });
           setShowSummary(false);
+          router.push("/");
         }}
       />
     </RetroLayout>
