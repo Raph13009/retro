@@ -100,18 +100,17 @@ export function RetroLayout({
         onExitHome={onExitHome}
       />
       <SidebarUiProvider collapsed={sidebarCollapsed}>
-        <section
-          ref={mainContentRef}
-          className="relative flex min-h-0 min-w-0 flex-1 flex-col px-5 pt-5 sm:px-7 lg:px-10 lg:pt-7"
-        >
-          <PhaseHeader
-            phase={phase}
-            roomCreatedAt={room.created_at}
-            participants={participants}
-            onlineParticipants={onlineParticipants}
-          />
-          <div className="relative min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden bg-transparent">{children}</div>
-          <div className="relative z-20 mt-auto flex w-full min-w-0 shrink-0 justify-center px-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-3 md:px-4">
+        <section ref={mainContentRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col pt-5 lg:pt-7">
+          <div className="shrink-0 px-5 sm:px-7 lg:px-10">
+            <PhaseHeader
+              phase={phase}
+              roomCreatedAt={room.created_at}
+              participants={participants}
+              onlineParticipants={onlineParticipants}
+            />
+          </div>
+          <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden bg-transparent">{children}</div>
+          <div className="relative z-20 mt-auto flex w-full min-w-0 shrink-0 justify-center px-5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-4 sm:px-7 md:pt-5 lg:px-10">
             <BottomMeetingBar
               room={room}
               phase={phase}

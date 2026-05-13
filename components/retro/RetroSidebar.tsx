@@ -52,7 +52,8 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
     <aside
       style={asideRailVar}
       className={cn(
-        "relative flex h-full shrink-0 flex-col overflow-hidden border-[#ded8e8]/80 bg-white/76 px-3 py-5 text-slate-900 shadow-[16px_0_50px_rgba(49,46,78,0.06)] backdrop-blur-2xl",
+        "relative flex h-full shrink-0 flex-col overflow-hidden border-[#ded8e8]/80 bg-white/76 py-5 text-slate-900 shadow-[16px_0_50px_rgba(49,46,78,0.06)] backdrop-blur-2xl",
+        collapsed ? "px-0" : "px-3",
         "transition-[width] duration-200 ease-out motion-reduce:transition-none",
         collapsed ? "w-[92px]" : "w-[280px]",
         "max-md:z-[55] max-md:border-b max-md:border-r-0 md:border-r",
@@ -62,7 +63,10 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
       <button
         type="button"
         onClick={onToggleCollapsed}
-        className="group absolute right-3 top-5 z-[60] grid h-8 w-8 cursor-pointer select-none place-items-center rounded-full border border-[#ded8e8] bg-white/80 text-slate-500 shadow-sm backdrop-blur-xl transition-colors duration-200 ease-out hover:bg-[#343052] hover:text-white hover:shadow-[0_14px_35px_rgba(49,46,78,0.16)] active:scale-95 motion-reduce:transition-none"
+        className={cn(
+          "group absolute top-5 z-[60] grid h-8 w-8 cursor-pointer select-none place-items-center rounded-full border border-[#ded8e8] bg-white/80 text-slate-500 shadow-sm backdrop-blur-xl transition-colors duration-200 ease-out hover:bg-[#343052] hover:text-white hover:shadow-[0_14px_35px_rgba(49,46,78,0.16)] active:scale-95 motion-reduce:transition-none",
+          collapsed ? "left-1/2 -translate-x-1/2" : "right-3"
+        )}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
@@ -70,7 +74,7 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
       </button>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden pt-14">
-        <div className={cn("flex items-start pr-10", HEADER_BLOCK)}>
+        <div className={cn("flex shrink-0 items-start pr-10", HEADER_BLOCK)}>
           <div className="min-w-0 flex-1 overflow-hidden">
             <p
               className={cn(
@@ -91,7 +95,13 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
           </div>
         </div>
 
-        <div className={cn("mt-4 flex shrink-0 items-center gap-2.5 rounded-2xl border border-[#ded8e8]/90 bg-white/68 p-2.5 shadow-sm", USER_ROW, "justify-start")}>
+        <div
+          className={cn(
+            "mt-4 flex shrink-0 items-center gap-2.5 rounded-2xl border border-[#ded8e8]/90 bg-white/68 p-2.5 shadow-sm",
+            USER_ROW,
+            collapsed ? "justify-center border-transparent bg-transparent shadow-none" : "justify-start"
+          )}
+        >
           <div
             className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
             style={{ backgroundColor: participant.avatar_color }}
@@ -113,7 +123,7 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
           </div>
         </div>
 
-        <nav className={cn("min-h-0 overflow-x-hidden", discuss ? "mt-4" : "mt-6")} aria-label="Retro progress">
+        <nav className={cn("min-h-0 shrink-0 overflow-x-hidden", discuss ? "mt-4" : "mt-6")} aria-label="Retro progress">
           <p
             className={cn(
               "mb-2 h-4 overflow-hidden px-1 text-[10px] font-bold uppercase leading-4 tracking-[0.22em] text-[#9a94ad] transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
@@ -122,7 +132,12 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
           >
             Workflow
           </p>
-          <ol className="flex flex-col gap-1 rounded-[1.35rem] border border-[#ded8e8]/80 bg-white/54 p-2.5 shadow-sm">
+          <ol
+            className={cn(
+              "flex flex-col gap-1 rounded-[1.35rem] border border-[#ded8e8]/80 bg-white/54 p-2.5 shadow-sm",
+              collapsed && "items-center border-transparent bg-transparent shadow-none"
+            )}
+          >
             {SIDEBAR_STEPS.map((step, index) => {
               const active = step.id === activeStep;
               const complete = index < currentIndex;
@@ -134,18 +149,22 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
                     <span
                       className={cn(
                         "absolute top-[2.875rem] z-0 h-5 w-px rounded-full transition-colors duration-200 ease-out motion-reduce:transition-none",
-                        "left-[22px]",
+                        collapsed ? "left-1/2 -translate-x-1/2" : "left-[22px]",
                         complete ? "bg-[#bcb5ce]" : "bg-[#e5e0ec]"
                       )}
                     />
                   ) : null}
                   <div
                     className={cn(
-                      "relative z-10 flex h-full min-h-[56px] w-full cursor-default items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left transition-colors",
-                      "justify-start",
-                      active && "bg-[#343052] text-white shadow-[0_16px_34px_-24px_rgba(52,48,82,0.72)]",
-                      state === "complete" && "text-[#4f4974]",
-                      state === "upcoming" && "text-slate-400"
+                      "relative z-10 flex h-full min-h-[56px] w-full cursor-default items-center rounded-2xl text-left transition-colors",
+                      collapsed ? "justify-center gap-0 px-0 py-0" : "gap-3 px-2.5 py-2.5 justify-start",
+                      !collapsed && active && "bg-[#343052] text-white shadow-[0_16px_34px_-24px_rgba(52,48,82,0.72)]",
+                      collapsed &&
+                        active &&
+                        "mx-auto h-11 w-11 shrink-0 rounded-full border-0 bg-[#343052] px-0 py-0 text-white shadow-[0_16px_34px_-24px_rgba(52,48,82,0.72)]",
+                      collapsed && !active && "border-0 bg-transparent shadow-none",
+                      state === "complete" && (!collapsed || !active) && "text-[#4f4974]",
+                      state === "upcoming" && (!collapsed || !active) && "text-slate-400"
                     )}
                   >
                     <span
@@ -203,7 +222,10 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
               window.setTimeout(() => setLinkCopied(false), 1600);
             }}
             title="Copy retro link"
-            className="flex h-9 w-full shrink-0 items-center justify-start gap-2.5 rounded-xl border border-[#ded8e8]/75 bg-white/48 px-2.5 text-xs font-bold text-slate-500 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#4f4974]"
+            className={cn(
+              "flex h-9 shrink-0 items-center rounded-xl border border-[#ded8e8]/75 bg-white/48 text-xs font-bold text-slate-500 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#4f4974]",
+              collapsed ? "mx-auto w-9 justify-center px-0" : "w-full justify-start gap-2.5 px-2.5"
+            )}
           >
             <Link2 className="h-3.5 w-3.5 shrink-0" />
             <span
@@ -219,7 +241,10 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
             type="button"
             onClick={onExitHome}
             title="Back home"
-            className="flex h-9 w-full shrink-0 items-center justify-start gap-2.5 rounded-xl border border-[#ded8e8]/75 bg-white/48 px-2.5 text-xs font-bold text-slate-600 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#343052]"
+            className={cn(
+              "flex h-9 shrink-0 items-center rounded-xl border border-[#ded8e8]/75 bg-white/48 text-xs font-bold text-slate-600 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#343052]",
+              collapsed ? "mx-auto w-9 justify-center px-0" : "w-full justify-start gap-2.5 px-2.5"
+            )}
           >
             <Home className="h-3.5 w-3.5 shrink-0" />
             <span
@@ -235,7 +260,10 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
             type="button"
             onClick={onOpenSupport}
             title="Support"
-            className="flex h-9 w-full shrink-0 items-center justify-start gap-2.5 rounded-xl border border-[#ded8e8]/75 bg-white/48 px-2.5 text-xs font-bold text-slate-500 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#4f4974]"
+            className={cn(
+              "flex h-9 shrink-0 items-center rounded-xl border border-[#ded8e8]/75 bg-white/48 text-xs font-bold text-slate-500 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#4f4974]",
+              collapsed ? "mx-auto w-9 justify-center px-0" : "w-full justify-start gap-2.5 px-2.5"
+            )}
           >
             <LifeBuoy className="h-3.5 w-3.5 shrink-0" />
             <span
@@ -250,16 +278,18 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
         </div>
 
         <div className="mt-auto shrink-0 overflow-hidden pt-2">
-          {discuss && !collapsed ? (
-            <div id={TROLL_PORTAL_ID} className="w-full min-w-0 overflow-hidden" aria-hidden={false} />
-          ) : !discuss ? (
+          {collapsed ? (
+            <div className={cn("invisible w-full shrink-0 pointer-events-none", MEETING_CARD)} aria-hidden />
+          ) : discuss ? (
+            <div id={TROLL_PORTAL_ID} className={cn("w-full min-w-0 overflow-hidden", MEETING_CARD)} aria-hidden={false} />
+          ) : (
             <div className={cn("rounded-xl border border-[#ded8e8]/70 bg-white/52 p-2.5 text-xs text-[#343052] shadow-sm", MEETING_CARD)}>
               <p className={cn("font-bold transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none", clip)}>Meeting flow</p>
               <p className={cn("mt-1 leading-snug text-[#6f6888] transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none", clip)}>
                 Join, reflect, then discuss decisions together.
               </p>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     </aside>

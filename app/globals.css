@@ -173,6 +173,37 @@ button:disabled {
   background: transparent;
 }
 
+/* Horizontal board strip: thumb hidden until hover or brief pulse after scroll */
+.board-h-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.board-h-scroll:hover,
+.board-h-scroll.board-h-scroll--thumb {
+  scrollbar-color: rgba(100, 92, 130, 0.38) transparent;
+}
+
+.board-h-scroll::-webkit-scrollbar {
+  height: 5px;
+}
+
+.board-h-scroll::-webkit-scrollbar-track {
+  margin-inline: 4px;
+  background: transparent;
+}
+
+.board-h-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.board-h-scroll:hover::-webkit-scrollbar-thumb,
+.board-h-scroll.board-h-scroll--thumb::-webkit-scrollbar-thumb {
+  background: rgba(100, 92, 130, 0.42);
+}
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;

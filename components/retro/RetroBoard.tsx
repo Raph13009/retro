@@ -1,3 +1,5 @@
+"use client";
+
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
 import type {
@@ -11,6 +13,8 @@ import type {
   Vote
 } from "@/lib/retro/types";
 import { RetroColumn as RetroColumnComponent } from "@/components/retro/RetroColumn";
+import { useBoardHorizontalScrollPeek } from "@/components/retro/useBoardHorizontalScrollPeek";
+import { cn } from "@/lib/utils";
 
 type RetroBoardProps = {
   room: Room;
@@ -62,6 +66,7 @@ export function RetroBoard({
   onMoveColumn
 }: RetroBoardProps) {
   const orderedColumns = [...columns].sort((first, second) => first.sort_order - second.sort_order);
+  const { ref: boardScrollRef, thumbActive } = useBoardHorizontalScrollPeek();
 
   function handleDragEnd(event: DragEndEvent) {
     const card = cards.find((candidate) => candidate.id === event.active.id);
@@ -75,8 +80,15 @@ export function RetroBoard({
   }
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div className="scroll-stable flex h-full min-h-0 gap-4 overflow-x-auto pb-2">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      <DndContext onDragEnd={handleDragEnd}>
+        <div
+          ref={boardScrollRef}
+          className={cn(
+            "board-h-scroll flex h-full min-h-0 min-w-0 gap-4 overflow-x-auto overflow-y-hidden pl-5 pr-5 pb-5 sm:pl-7 sm:pr-7 md:pb-6 lg:pl-10 lg:pr-10",
+            thumbActive && "board-h-scroll--thumb"
+          )}
+        >
         {orderedColumns.map((column, index) => (
           <RetroColumnComponent
             key={column.id}
@@ -119,5 +131,6 @@ export function RetroBoard({
         ) : null}
       </div>
     </DndContext>
+    </div>
   );
 }

@@ -17,6 +17,7 @@ import { ActionsColumn } from "@/components/retro/ActionsColumn";
 import { GhostReflection, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
 import { GroupColumn } from "@/components/retro/GroupColumn";
 import { useSidebarUi } from "@/components/retro/SidebarUiContext";
+import { useBoardHorizontalScrollPeek } from "@/components/retro/useBoardHorizontalScrollPeek";
 import { TROLL_DROP_ID, TROLL_PORTAL_ID, isTrollGroup } from "@/lib/retro/troll";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +95,7 @@ export function GroupBoard({
   onMoveCardToTroll
 }: GroupBoardProps) {
   const { collapsed: sidebarCollapsed } = useSidebarUi();
+  const { ref: boardScrollRef, thumbActive } = useBoardHorizontalScrollPeek();
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [trollPortal, setTrollPortal] = useState<HTMLElement | null>(null);
   const orderedColumns = [...columns].sort((first, second) => first.sort_order - second.sort_order);
@@ -180,8 +182,15 @@ export function GroupBoard({
   }
 
   return (
-    <DndContext collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-      <div className="scroll-stable flex h-full min-h-0 gap-5 overflow-x-auto overflow-y-hidden pb-2 md:gap-6 md:pb-3">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      <DndContext collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+        <div
+          ref={boardScrollRef}
+          className={cn(
+            "board-h-scroll flex h-full min-h-0 min-w-0 gap-5 overflow-x-auto overflow-y-hidden pl-5 pr-5 pb-5 sm:pl-7 sm:pr-7 md:gap-6 md:pb-6 lg:pl-10 lg:pr-10",
+            thumbActive && "board-h-scroll--thumb"
+          )}
+        >
         {orderedColumns.map((column) => (
           <GroupColumn
             key={column.id}
@@ -220,6 +229,7 @@ export function GroupBoard({
         {activeCard ? <CardDragOverlay card={activeCard} participant={activeParticipant} phase={phase} currentParticipantId={currentParticipantId} /> : null}
       </DragOverlay>
     </DndContext>
+    </div>
   );
 }
 

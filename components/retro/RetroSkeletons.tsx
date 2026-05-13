@@ -126,8 +126,8 @@ export function RoomLoadingSkeleton() {
           </div>
         </div>
       </aside>
-      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-[max(6.5rem,env(safe-area-inset-bottom,0px))] pt-4 sm:px-6 lg:px-8 lg:pb-[max(6rem,env(safe-area-inset-bottom,0px))] lg:pt-6">
-        <header className="flex items-start justify-between gap-6 pb-5 pt-7">
+      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col pb-[max(6.5rem,env(safe-area-inset-bottom,0px))] pt-4 lg:pb-[max(6rem,env(safe-area-inset-bottom,0px))] lg:pt-6">
+        <header className="flex shrink-0 items-start justify-between gap-6 px-5 pb-5 pt-7 sm:px-7 lg:px-10">
           <div className="min-w-0 flex-1 space-y-3">
             <ShimmerBlock className="h-11 w-56 max-w-full rounded-xl sm:w-64" />
             <ShimmerBlock className="h-5 w-full max-w-md rounded-lg" />
@@ -138,8 +138,8 @@ export function RoomLoadingSkeleton() {
             ))}
           </div>
         </header>
-        <div className="relative min-h-0 flex-1 overflow-hidden bg-transparent">
-          <div className="scroll-stable flex h-full min-h-0 gap-6 overflow-x-auto bg-transparent pb-2">
+        <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden bg-transparent">
+          <div className="board-h-scroll flex h-full min-h-0 gap-6 overflow-x-auto bg-transparent pl-5 pr-5 pb-5 sm:pl-7 sm:pr-7 md:pb-6 lg:pl-10 lg:pr-10">
             <BoardColumnSkeleton />
             <BoardColumnSkeleton />
             <BoardColumnSkeleton />
