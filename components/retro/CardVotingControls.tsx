@@ -5,6 +5,7 @@ import { SmilePlus } from "lucide-react";
 import type { MeetingPhase, Reaction, RetroCard, Vote } from "@/lib/retro/types";
 import { SUGGESTED_EMOJIS } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
+import { useSelfFireTooltip } from "@/components/retro/useSelfFireTooltip";
 
 type CardVotingControlsProps = {
   card: RetroCard;
@@ -43,6 +44,8 @@ export function CardVotingControls({
       })).filter((reaction) => reaction.count > 0),
     [card.id, currentParticipantId, reactions]
   );
+
+  const { fireRef, tooltip: selfFireTooltip } = useSelfFireTooltip(card.id);
 
   return (
     <div
@@ -100,6 +103,7 @@ export function CardVotingControls({
                 return (
                   <button
                     key={emoji}
+                    ref={emoji === "🔥" ? fireRef : undefined}
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
@@ -125,6 +129,7 @@ export function CardVotingControls({
         {groupedReactions.map((reaction) => (
           <button
             key={reaction.emoji}
+            ref={reaction.emoji === "🔥" ? fireRef : undefined}
             type="button"
             onClick={(event) => {
               event.stopPropagation();
@@ -140,6 +145,7 @@ export function CardVotingControls({
           </button>
         ))}
       </div>
+      {selfFireTooltip}
     </div>
   );
 }

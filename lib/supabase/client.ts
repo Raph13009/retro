@@ -12,12 +12,4 @@ export const hasSupabaseEnv =
   hasRealValue(supabaseAnonKey, "your-supabase-anon-key") &&
   Boolean(supabaseUrl?.startsWith("https://"));
 
-export const supabase = hasSupabaseEnv
-  ? createClient(supabaseUrl!, supabaseAnonKey!, {
-      realtime: {
-        params: {
-          eventsPerSecond: 20
-        }
-      }
-    })
-  : null;
+export const supabase = hasSupabaseEnv ? createClient(supabaseUrl!, supabaseAnonKey!) : null;

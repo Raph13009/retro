@@ -4,6 +4,7 @@ import { CheckSquare, GripVertical, MessageCircle, Pencil, Trash2 } from "lucide
 import type { ActionItem, CardComment, Participant, Reaction, RetroCard as RetroCardType, Room, Vote } from "@/lib/retro/types";
 import { getVoteLimit, SUGGESTED_EMOJIS } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
+import { useSelfFireTooltip } from "@/components/retro/useSelfFireTooltip";
 
 type RetroCardProps = {
   card: RetroCardType;
@@ -50,6 +51,8 @@ export function RetroCard({
       (reaction) => reaction.card_id === card.id && reaction.emoji === emoji && reaction.participant_id === participant.id
     )
   }));
+
+  const { fireRef, tooltip: selfFireTooltip } = useSelfFireTooltip(card.id);
 
   return (
     <article
@@ -141,6 +144,7 @@ export function RetroCard({
         {groupedReactions.map((reaction) => (
           <button
             key={reaction.emoji}
+            ref={reaction.emoji === "🔥" ? fireRef : undefined}
             type="button"
             onClick={() => onReact(card, reaction.emoji)}
             className={cn(
@@ -154,6 +158,7 @@ export function RetroCard({
           </button>
         ))}
       </div>
+      {selfFireTooltip}
     </article>
   );
 }

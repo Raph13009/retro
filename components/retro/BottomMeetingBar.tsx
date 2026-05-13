@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Lightbulb, Music2, Pause, Play, Square, Timer, UsersRound } from "lucide-react";
+import { MousePointer2, Music2, Pause, Play, Square, Timer, UsersRound } from "lucide-react";
 import type { MeetingPhase, Participant, Room } from "@/lib/retro/types";
 import { getVoteLimit } from "@/lib/retro/types";
 import { cn, formatTime } from "@/lib/utils";
@@ -10,13 +10,14 @@ type BottomMeetingBarProps = {
   participants: Participant[];
   remainingSeconds: number;
   isCreator: boolean;
+  liveCursorsEnabled: boolean;
+  onLiveCursorsToggle: () => void;
   onVoteLimitChange: (limit: number) => Promise<boolean> | boolean;
   onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
   onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
   onConfirmDiscuss: () => void;
   onCloseRoom: () => void;
-  sidebarCollapsed: boolean;
 };
 
 const MUSIC_TRACKS = [
@@ -33,22 +34,22 @@ export function BottomMeetingBar({
   participants,
   remainingSeconds,
   isCreator,
+  liveCursorsEnabled,
+  onLiveCursorsToggle,
   onVoteLimitChange,
   onSaveTimerDuration,
   onStartTimer,
   onStopTimer,
   onConfirmDiscuss,
-  onCloseRoom,
-  sidebarCollapsed
+  onCloseRoom
 }: BottomMeetingBarProps) {
   const voteLimit = getVoteLimit(room);
 
   return (
-    <div className={cn("pointer-events-none fixed bottom-5 right-8 z-30 flex justify-center transition-[left] duration-200", sidebarCollapsed ? "left-[108px]" : "left-[292px]")}>
+    <div className="pointer-events-none flex w-full min-w-0 justify-center px-2 sm:px-4">
       <div
         className={cn(
-          "pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-[2rem] border border-[#ded8e8]/80 bg-white/88 px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_24px_70px_-42px_rgba(49,46,78,0.34)] backdrop-blur-2xl",
-          sidebarCollapsed ? "max-w-[calc(100vw-160px)]" : "max-w-[calc(100vw-350px)]"
+          "pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-[2rem] border border-[#ded8e8]/80 bg-white/92 px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_18px_50px_-36px_rgba(49,46,78,0.3)] backdrop-blur-2xl sm:gap-3 sm:px-5 sm:py-2.5"
         )}
       >
         <MusicPicker />
@@ -63,13 +64,10 @@ export function BottomMeetingBar({
           onConfirmDiscuss={onConfirmDiscuss}
           onCloseRoom={onCloseRoom}
         />
-        <button className="flex items-center gap-2 rounded-full px-3 py-2 hover:bg-[#f1eef6]" type="button">
-          <Lightbulb className="h-4 w-4 text-[#6d668f]" />
-          Tips
-        </button>
-        <div className="flex items-center gap-2 rounded-full bg-[#f1eef6] px-3 py-2 text-[#4f4974]">
-          <UsersRound className="h-4 w-4" />
-          {participants.length}
+        <LiveCursorsToggle enabled={liveCursorsEnabled} onToggle={onLiveCursorsToggle} />
+        <div className="flex items-center gap-2 rounded-full bg-[#f1eef6] px-3 py-2 text-[#4f4974] sm:px-3.5 sm:py-2">
+          <UsersRound className="h-4 w-4 shrink-0 text-[#6d668f]" />
+          <span className="min-w-[1ch] text-center text-sm font-extrabold tabular-nums">{participants.length}</span>
         </div>
         {phase === "discuss" ? <VoteSettingsControl voteLimit={voteLimit} isCreator={isCreator} onVoteLimitChange={onVoteLimitChange} /> : null}
       </div>
@@ -95,18 +93,68 @@ function useCloseOnOutside(containerRef: RefObject<HTMLElement | null>, open: bo
   }, [containerRef, onClose, open]);
 }
 
+function LiveCursorsToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      onClick={onToggle}
+      className={cn(
+        "flex min-w-0 max-w-full shrink-0 items-center gap-1.5 rounded-full px-2.5 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8c83ad] sm:gap-2 sm:px-3.5",
+        enabled ? "bg-[#343052] text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]" : "text-[#4f4974] hover:bg-[#f1eef6]"
+      )}
+      aria-label={
+        enabled
+          ? "Live cursors on. Switch to focus mode to hide other participants’ pointers and stop sharing yours."
+          : "Focus mode on. Switch to show live cursors and share your pointer."
+      }
+    >
+      <MousePointer2 className={cn("h-4 w-4 shrink-0", enabled ? "text-[#e8e4f6]" : "text-[#6d668f]")} aria-hidden />
+      {enabled ? (
+        <>
+          <span className="hidden min-w-0 truncate font-extrabold sm:inline" aria-hidden>
+            Live cursors
+          </span>
+          <span className="truncate text-xs font-extrabold sm:hidden" aria-hidden>
+            Live
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="hidden min-w-0 truncate font-extrabold sm:inline" aria-hidden>
+            Focus mode
+          </span>
+          <span className="truncate text-xs font-extrabold sm:hidden" aria-hidden>
+            Focus
+          </span>
+        </>
+      )}
+    </button>
+  );
+}
+
 function MusicPicker() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const spotifyJokeTimeoutRef = useRef<number | null>(null);
+  const wiggleTimersRef = useRef<number[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
   const [playing, setPlaying] = useState(false);
   const [message, setMessage] = useState("");
+  const [spotifyJoke, setSpotifyJoke] = useState(false);
+  const [wiggle, setWiggle] = useState(false);
 
   useCloseOnOutside(containerRef, open, () => setOpen(false));
 
   useEffect(() => {
     return () => {
+      if (spotifyJokeTimeoutRef.current) {
+        window.clearTimeout(spotifyJokeTimeoutRef.current);
+      }
+      wiggleTimersRef.current.forEach((id) => window.clearTimeout(id));
+      wiggleTimersRef.current = [];
       const audio = audioRef.current;
       if (!audio) {
         return;
@@ -175,23 +223,53 @@ function MusicPicker() {
     }
   }
 
+  function triggerSpotifyJoke() {
+    setSpotifyJoke(true);
+    if (spotifyJokeTimeoutRef.current) {
+      window.clearTimeout(spotifyJokeTimeoutRef.current);
+    }
+    spotifyJokeTimeoutRef.current = window.setTimeout(() => {
+      setSpotifyJoke(false);
+      spotifyJokeTimeoutRef.current = null;
+    }, 2000);
+
+    wiggleTimersRef.current.forEach((id) => window.clearTimeout(id));
+    wiggleTimersRef.current = [];
+    setWiggle(false);
+    wiggleTimersRef.current.push(
+      window.setTimeout(() => {
+        setWiggle(true);
+        wiggleTimersRef.current.push(
+          window.setTimeout(() => {
+            setWiggle(false);
+          }, 380)
+        );
+      }, 20)
+    );
+  }
+
   return (
     <div ref={containerRef} className="relative">
       <button
-        className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-[#f1eef6]", open && "bg-[#f1eef6] text-[#4f4974]")}
+        className={cn("flex shrink-0 items-center gap-2 rounded-full px-3 py-2 hover:bg-[#f1eef6] sm:px-3.5", open && "bg-[#f1eef6] text-[#4f4974]")}
         type="button"
         onClick={() => setOpen((value) => !value)}
       >
-        <Music2 className="h-4 w-4 text-[#6d668f]" />
-        Music
+        <Music2 className="h-4 w-4 shrink-0 text-[#6d668f]" />
+        <span className="hidden sm:inline">Music</span>
       </button>
 
       {open ? (
-        <div className="absolute bottom-full left-0 z-50 mb-3 w-72 rounded-[1.5rem] border border-[#ded8e8] bg-white/94 p-3 text-slate-900 shadow-[0_24px_70px_-34px_rgba(49,46,78,0.28)] backdrop-blur-2xl">
+        <div
+          className={cn(
+            "rounded-[1.25rem] border border-[#ded8e8] bg-white/95 p-4 text-slate-900 shadow-[0_28px_90px_-40px_rgba(49,46,78,0.42)] backdrop-blur-xl",
+            "fixed inset-x-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] z-[100] w-auto max-w-none sm:absolute sm:inset-x-auto sm:bottom-full sm:left-auto sm:right-0 sm:mb-3 sm:w-80 sm:min-w-[20rem] sm:max-w-[min(22rem,calc(100vw-2rem))]"
+          )}
+        >
           <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#6d668f]">Music mood</p>
-              <p className="mt-1 text-sm font-extrabold text-slate-950">
+              <p className="mt-1 truncate text-sm font-extrabold text-slate-950 sm:text-base">
                 {selectedTrack && playing ? `Now playing: ${selectedTrack.label}` : selectedTrack ? `Selected: ${selectedTrack.label}` : "Pick a vibe"}
               </p>
             </div>
@@ -206,7 +284,7 @@ function MusicPicker() {
             </button>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {MUSIC_TRACKS.map((track) => {
               const selected = selectedTrack?.id === track.id;
               return (
@@ -215,16 +293,42 @@ function MusicPicker() {
                   type="button"
                   onClick={() => selectTrack(track)}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm font-extrabold transition",
+                    "flex w-full min-w-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-left text-sm font-extrabold transition sm:text-base",
                     selected ? "bg-[#343052] text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]" : "bg-[#f1eef6] text-slate-700 hover:bg-[#ebe8f4]"
                   )}
                 >
-                  <span>
-                    {track.label} <span aria-hidden="true">{track.icon}</span>
+                  <span className="min-w-0 truncate">
+                    <span className="mr-2" aria-hidden>
+                      {track.icon}
+                    </span>
+                    {track.label}
                   </span>
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-2 border-t border-[#ded8e8]/80 pt-2">
+            <button
+              type="button"
+              onClick={triggerSpotifyJoke}
+              className={cn(
+                "flex w-full min-w-0 items-center gap-2 rounded-xl border border-dashed border-[#d6cfe8] bg-gradient-to-r from-[#faf8ff] to-[#f3eef8] px-3 py-2.5 text-left text-xs font-bold leading-snug text-[#6d5a8a] transition hover:border-[#c4b6d9] hover:from-white hover:to-[#f7f2fb] sm:text-sm",
+                wiggle && "retro-music-wiggle"
+              )}
+              aria-live="polite"
+            >
+              <span aria-hidden="true" className="inline-flex w-8 shrink-0 items-center justify-center text-base leading-none">
+                {spotifyJoke ? "🤡" : "🎧"}
+              </span>
+              <span className="grid min-w-0 flex-1">
+                <span className="invisible col-start-1 row-start-1 select-none whitespace-nowrap">Choose your own music</span>
+                <span className="invisible col-start-1 row-start-1 select-none whitespace-nowrap">You thought this was Spotify?</span>
+                <span className="col-start-1 row-start-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                  {spotifyJoke ? "You thought this was Spotify?" : "Choose your own music"}
+                </span>
+              </span>
+            </button>
           </div>
 
           {message ? <p className="mt-3 rounded-2xl bg-[#f4ead7] px-3 py-2 text-xs font-bold text-[#8a6b36]">{message}</p> : null}
@@ -282,15 +386,19 @@ function TimerPicker({
   }
 
   return (
-    <div ref={containerRef} className="relative flex items-center gap-2">
+    <div ref={containerRef} className="relative flex flex-wrap items-center gap-1.5 sm:gap-2">
       <button
-        className={cn("flex items-center gap-2 rounded-full px-3 py-2 hover:bg-[#f1eef6] disabled:cursor-not-allowed disabled:opacity-50", open && "bg-[#f1eef6] text-[#4f4974]")}
+        className={cn(
+          "flex max-w-full shrink-0 items-center gap-2 rounded-full px-3 py-2 hover:bg-[#f1eef6] disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2.5 sm:px-3.5",
+          open && "bg-[#f1eef6] text-[#4f4974]"
+        )}
         type="button"
         onClick={() => setOpen((value) => !value)}
         disabled={!isCreator}
       >
-        <Timer className="h-4 w-4 text-[#6d668f]" />
-        Timer {timerLabel}
+        <Timer className="h-4 w-4 shrink-0 text-[#6d668f]" />
+        <span className="hidden min-w-0 truncate sm:inline">Timer {timerLabel}</span>
+        <span className="tabular-nums sm:hidden">{timerLabel}</span>
       </button>
 
       {isCreator ? (
@@ -325,10 +433,15 @@ function TimerPicker({
       ) : null}
 
       {open ? (
-        <div className="absolute bottom-full left-0 z-50 mb-3 w-72 rounded-[1.5rem] border border-[#ded8e8] bg-white/94 p-3 text-slate-900 shadow-[0_24px_70px_-34px_rgba(49,46,78,0.28)] backdrop-blur-2xl">
+        <div
+          className={cn(
+            "rounded-[1.25rem] border border-[#ded8e8] bg-white/95 p-4 text-slate-900 shadow-[0_28px_90px_-40px_rgba(49,46,78,0.42)] backdrop-blur-xl",
+            "fixed inset-x-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom,0px))] z-[100] w-auto max-w-none sm:absolute sm:inset-x-auto sm:bottom-full sm:left-auto sm:right-0 sm:mb-3 sm:w-80 sm:min-w-[20rem] sm:max-w-[min(22rem,calc(100vw-2rem))]"
+          )}
+        >
           <div className="mb-3">
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#6d668f]">Timer setup</p>
-            <p className="mt-1 text-sm font-extrabold text-slate-950">Set the writing timer</p>
+            <p className="mt-1 text-sm font-extrabold text-slate-950 sm:text-base">Set the writing timer</p>
           </div>
 
           <label className="block">
@@ -386,10 +499,11 @@ function VoteSettingsControl({
             setEditing(true);
           }
         }}
-        className="rounded-full bg-[#f1eef6] px-3 py-2 text-sm font-extrabold text-[#4f4974] disabled:cursor-default"
+        className="rounded-full bg-[#f1eef6] px-3 py-2 text-sm font-extrabold text-[#4f4974] disabled:cursor-default sm:px-3.5"
         disabled={!isCreator}
       >
-        Votes per person: {voteLimit}
+        <span className="sm:hidden">Votes: {voteLimit}</span>
+        <span className="hidden sm:inline">Votes per person: {voteLimit}</span>
       </button>
     );
   }

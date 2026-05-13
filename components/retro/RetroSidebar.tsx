@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, LifeBuoy, Link2, UserRound } from "lucide-react";
+import { useState, type CSSProperties } from "react";
+import { Check, ChevronLeft, ChevronRight, Home, LifeBuoy, Link2, UserRound } from "lucide-react";
 import type { MeetingPhase, Participant, Room } from "@/lib/retro/types";
 import { TROLL_PORTAL_ID } from "@/lib/retro/troll";
+import { useTherapyDiscussMode } from "@/components/retro/useTherapyDiscussMode";
 import { cn } from "@/lib/utils";
 
 type RetroSidebarProps = {
@@ -9,8 +10,10 @@ type RetroSidebarProps = {
   participant: Participant;
   currentPhase: MeetingPhase;
   collapsed: boolean;
+  isCompactScreen: boolean;
   onToggleCollapsed: () => void;
   onOpenSupport: () => void;
+  onExitHome: () => void;
 };
 
 type SidebarStepId = "joining" | "reflect" | "discuss";
@@ -22,160 +25,241 @@ const SIDEBAR_STEPS: Array<{ id: SidebarStepId; label: string; status: string }>
   { id: "discuss", label: "Discuss", status: "Decide next steps" }
 ];
 
-export function RetroSidebar({ room, participant, currentPhase, collapsed, onToggleCollapsed, onOpenSupport }: RetroSidebarProps) {
-  const [contentVisible, setContentVisible] = useState(!collapsed);
+const HEADER_BLOCK = "max-h-[76px] min-h-[76px] overflow-hidden";
+const USER_ROW = "min-h-[56px] h-[56px]";
+const STEP_ROW = "min-h-[56px]";
+const MEETING_CARD = "min-h-[5.5rem]";
+
+/** Collapsed rail width — CSS var for any consumers. */
+const RAIL_W = 92;
+
+/** Labels hide horizontally without changing layout: zero width + no opacity hit on geometry. */
+function labelClip(collapsed: boolean) {
+  return collapsed ? "max-w-0 overflow-hidden opacity-0" : "max-w-[220px] opacity-100";
+}
+
+export function RetroSidebar({ room, participant, currentPhase, collapsed, isCompactScreen, onToggleCollapsed, onOpenSupport, onExitHome }: RetroSidebarProps) {
   const [linkCopied, setLinkCopied] = useState(false);
   const activeStep: SidebarStepId = room.status === "waiting" ? "joining" : currentPhase === "discuss" ? "discuss" : "reflect";
   const currentIndex = SIDEBAR_STEPS.findIndex((step) => step.id === activeStep);
+  const discuss = currentPhase === "discuss";
+  const clip = labelClip(collapsed);
+  const therapyDiscuss = useTherapyDiscussMode(currentPhase, room.created_at);
 
-  useEffect(() => {
-    if (collapsed) {
-      setContentVisible(false);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setContentVisible(true), 220);
-    return () => window.clearTimeout(timeout);
-  }, [collapsed]);
+  const asideRailVar = collapsed ? ({ ["--retro-rail-w"]: `${RAIL_W}px` } as CSSProperties) : undefined;
 
   return (
     <aside
+      style={asideRailVar}
       className={cn(
-        "relative flex h-full shrink-0 flex-col border-r border-[#ded8e8]/80 bg-white/76 py-5 text-slate-900 shadow-[16px_0_50px_rgba(49,46,78,0.06)] backdrop-blur-2xl transition-[width,padding] duration-200",
-        collapsed ? "w-[76px] px-3" : "w-[260px] px-5"
+        "relative flex h-full shrink-0 flex-col overflow-hidden border-[#ded8e8]/80 bg-white/76 px-3 py-5 text-slate-900 shadow-[16px_0_50px_rgba(49,46,78,0.06)] backdrop-blur-2xl",
+        "transition-[width] duration-200 ease-out motion-reduce:transition-none",
+        collapsed ? "w-[92px]" : "w-[280px]",
+        "max-md:z-[55] max-md:border-b max-md:border-r-0 md:border-r",
+        isCompactScreen && !collapsed && "max-md:fixed max-md:left-0 max-md:top-0 max-md:h-dvh max-md:shadow-2xl"
       )}
     >
       <button
         type="button"
         onClick={onToggleCollapsed}
-        className="group absolute right-4 top-5 z-[60] grid h-8 w-8 cursor-pointer select-none place-items-center rounded-full border border-[#ded8e8] bg-white/80 text-slate-500 shadow-sm backdrop-blur-xl transition hover:bg-[#343052] hover:text-white hover:shadow-[0_14px_35px_rgba(49,46,78,0.16)] active:scale-95"
+        className="group absolute right-3 top-5 z-[60] grid h-8 w-8 cursor-pointer select-none place-items-center rounded-full border border-[#ded8e8] bg-white/80 text-slate-500 shadow-sm backdrop-blur-xl transition-colors duration-200 ease-out hover:bg-[#343052] hover:text-white hover:shadow-[0_14px_35px_rgba(49,46,78,0.16)] active:scale-95 motion-reduce:transition-none"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {collapsed ? <ChevronRight className="pointer-events-none h-4 w-4 transition group-hover:translate-x-0.5" /> : <ChevronLeft className="pointer-events-none h-4 w-4 transition group-hover:-translate-x-0.5" />}
       </button>
 
-      <div className={cn("flex min-h-[76px] items-start", collapsed ? "justify-center" : "justify-between gap-3 pr-9")}>
-        {contentVisible ? (
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#827b9f]">Retrospective</p>
-            <h1 className="mt-2 line-clamp-2 text-xl font-bold leading-[1.05] tracking-[-0.04em] text-slate-950">{room.name}</h1>
+      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden pt-14">
+        <div className={cn("flex items-start pr-10", HEADER_BLOCK)}>
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <p
+              className={cn(
+                "text-[10px] font-bold uppercase tracking-[0.24em] text-[#827b9f] transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+                clip
+              )}
+            >
+              Retrospective
+            </p>
+            <h1
+              className={cn(
+                "mt-2 line-clamp-2 min-h-[2.75rem] text-xl font-bold leading-[1.1] tracking-[-0.04em] text-slate-950 transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+                clip
+              )}
+            >
+              {room.name}
+            </h1>
           </div>
-        ) : null}
-      </div>
-
-      <div className={cn("mt-4 flex items-center rounded-2xl border border-[#ded8e8]/90 bg-white/68 shadow-sm", collapsed ? "justify-center p-2" : "gap-2.5 p-2.5")}>
-        <div
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
-          style={{ backgroundColor: participant.avatar_color }}
-        >
-          {participant.name.slice(0, 1).toUpperCase()}
         </div>
-        {contentVisible ? <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#827b9f]">
-            <UserRound className="h-3 w-3" />
-            You
-          </div>
-          <p className="truncate text-sm font-semibold leading-5 text-slate-800">{participant.name}</p>
-        </div> : null}
-      </div>
 
-      <nav className="mt-6" aria-label="Retro progress">
-        {contentVisible ? <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#9a94ad]">Workflow</p> : null}
-        <ol className={cn("rounded-[1.35rem] border border-[#ded8e8]/80 bg-white/54 shadow-sm", collapsed ? "space-y-1 p-2" : "p-2.5")}>
-          {SIDEBAR_STEPS.map((step, index) => {
-            const active = step.id === activeStep;
-            const complete = index < currentIndex;
-            const state: StepState = complete ? "complete" : active ? "active" : "upcoming";
-            return (
-              <li key={step.id} title={collapsed ? step.label : undefined} aria-current={active ? "step" : undefined} className="relative">
-                {index < SIDEBAR_STEPS.length - 1 ? (
-                  <span
+        <div className={cn("mt-4 flex shrink-0 items-center gap-2.5 rounded-2xl border border-[#ded8e8]/90 bg-white/68 p-2.5 shadow-sm", USER_ROW, "justify-start")}>
+          <div
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
+            style={{ backgroundColor: participant.avatar_color }}
+            title={collapsed ? `${participant.name} (you)` : undefined}
+          >
+            {participant.name.slice(0, 1).toUpperCase()}
+          </div>
+          <div
+            className={cn(
+              "min-w-0 shrink-0 overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+              clip
+            )}
+          >
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#827b9f]">
+              <UserRound className="h-3 w-3 shrink-0" />
+              You
+            </div>
+            <p className="truncate text-sm font-semibold leading-5 text-slate-800">{participant.name}</p>
+          </div>
+        </div>
+
+        <nav className={cn("min-h-0 overflow-x-hidden", discuss ? "mt-4" : "mt-6")} aria-label="Retro progress">
+          <p
+            className={cn(
+              "mb-2 h-4 overflow-hidden px-1 text-[10px] font-bold uppercase leading-4 tracking-[0.22em] text-[#9a94ad] transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+              clip
+            )}
+          >
+            Workflow
+          </p>
+          <ol className="flex flex-col gap-1 rounded-[1.35rem] border border-[#ded8e8]/80 bg-white/54 p-2.5 shadow-sm">
+            {SIDEBAR_STEPS.map((step, index) => {
+              const active = step.id === activeStep;
+              const complete = index < currentIndex;
+              const state: StepState = complete ? "complete" : active ? "active" : "upcoming";
+              const stepMainLabel = step.id === "discuss" && therapyDiscuss ? "Therapy session" : step.label;
+              return (
+                <li key={step.id} title={collapsed ? stepMainLabel : undefined} aria-current={active ? "step" : undefined} className={cn("relative", STEP_ROW)}>
+                  {index < SIDEBAR_STEPS.length - 1 ? (
+                    <span
+                      className={cn(
+                        "absolute top-[2.875rem] z-0 h-5 w-px rounded-full transition-colors duration-200 ease-out motion-reduce:transition-none",
+                        "left-[22px]",
+                        complete ? "bg-[#bcb5ce]" : "bg-[#e5e0ec]"
+                      )}
+                    />
+                  ) : null}
+                  <div
                     className={cn(
-                      "absolute z-0 w-px rounded-full",
-                      collapsed ? "left-1/2 top-9 h-5 -translate-x-1/2" : "left-5 top-10 h-6",
-                      complete ? "bg-[#bcb5ce]" : "bg-[#e5e0ec]"
-                    )}
-                  />
-                ) : null}
-                <div
-                  className={cn(
-                    "relative z-10 flex w-full cursor-default items-center gap-3 rounded-2xl text-left transition",
-                    collapsed ? "justify-center px-0 py-2" : "px-2.5 py-2.5",
-                    active && "bg-[#343052] text-white shadow-[0_16px_34px_-24px_rgba(52,48,82,0.72)]",
-                    state === "complete" && "text-[#4f4974]",
-                    state === "upcoming" && "text-slate-400"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[11px] font-bold",
-                      active && "border-white/35 bg-white/18 text-white",
-                      state === "complete" && "border-[#d5cfe2] bg-[#eeeaf5] text-[#4f4974]",
-                      state === "upcoming" && "border-[#e5e1ec] bg-white/72 text-slate-400"
+                      "relative z-10 flex h-full min-h-[56px] w-full cursor-default items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left transition-colors",
+                      "justify-start",
+                      active && "bg-[#343052] text-white shadow-[0_16px_34px_-24px_rgba(52,48,82,0.72)]",
+                      state === "complete" && "text-[#4f4974]",
+                      state === "upcoming" && "text-slate-400"
                     )}
                   >
-                    {complete ? <Check className="h-3.5 w-3.5" /> : active ? <span className="h-2 w-2 rounded-full bg-current" /> : index + 1}
-                  </span>
-                  {contentVisible ? (
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold leading-5">{step.label}</span>
+                    <span
+                      className={cn(
+                        "grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[11px] font-bold",
+                        active && "border-white/35 bg-white/18 text-white",
+                        state === "complete" && "border-[#d5cfe2] bg-[#eeeaf5] text-[#4f4974]",
+                        state === "upcoming" && "border-[#e5e1ec] bg-white/72 text-slate-400"
+                      )}
+                    >
+                      {complete ? <Check className="h-3.5 w-3.5" /> : active ? <span className="h-2 w-2 rounded-full bg-current" /> : index + 1}
+                    </span>
+                    <span
+                      className={cn(
+                        "min-w-0 overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+                        clip
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "block text-sm font-bold leading-5",
+                          step.id === "discuss" && therapyDiscuss && (active ? "text-violet-100" : "text-[#7c6aa8]")
+                        )}
+                      >
+                        {stepMainLabel}
+                      </span>
                       <span className={cn("block truncate text-[11px] font-semibold leading-4", active ? "text-white/68" : "text-[#8a849d]")}>
                         {active ? "Current phase" : complete ? "Completed" : step.status}
                       </span>
                     </span>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
 
-      <div className="mt-5 space-y-1.5">
-        {contentVisible ? <p className="px-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#9a94ad]">Room</p> : null}
-        <button
-          type="button"
-          onClick={async () => {
-            if (typeof window === "undefined") {
-              return;
-            }
+        <div className={cn("space-y-1.5 overflow-x-hidden", discuss ? "mt-4" : "mt-5")}>
+          <p
+            className={cn(
+              "h-4 overflow-hidden px-1 text-[10px] font-bold uppercase leading-4 tracking-[0.22em] text-[#9a94ad] transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+              clip
+            )}
+          >
+            Room
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              if (typeof window === "undefined") {
+                return;
+              }
+              await navigator.clipboard.writeText(window.location.href);
+              setLinkCopied(true);
+              window.setTimeout(() => setLinkCopied(false), 1600);
+            }}
+            title="Copy retro link"
+            className="flex h-9 w-full shrink-0 items-center justify-start gap-2.5 rounded-xl border border-[#ded8e8]/75 bg-white/48 px-2.5 text-xs font-bold text-slate-500 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#4f4974]"
+          >
+            <Link2 className="h-3.5 w-3.5 shrink-0" />
+            <span
+              className={cn(
+                "min-w-0 truncate transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+                clip
+              )}
+            >
+              {linkCopied ? "Link copied" : "Share link"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={onExitHome}
+            title="Back home"
+            className="flex h-9 w-full shrink-0 items-center justify-start gap-2.5 rounded-xl border border-[#ded8e8]/75 bg-white/48 px-2.5 text-xs font-bold text-slate-600 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#343052]"
+          >
+            <Home className="h-3.5 w-3.5 shrink-0" />
+            <span
+              className={cn(
+                "min-w-0 truncate transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+                clip
+              )}
+            >
+              Back home
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenSupport}
+            title="Support"
+            className="flex h-9 w-full shrink-0 items-center justify-start gap-2.5 rounded-xl border border-[#ded8e8]/75 bg-white/48 px-2.5 text-xs font-bold text-slate-500 transition-colors hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#4f4974]"
+          >
+            <LifeBuoy className="h-3.5 w-3.5 shrink-0" />
+            <span
+              className={cn(
+                "min-w-0 truncate transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
+                clip
+              )}
+            >
+              Support
+            </span>
+          </button>
+        </div>
 
-            await navigator.clipboard.writeText(window.location.href);
-            setLinkCopied(true);
-            window.setTimeout(() => setLinkCopied(false), 1600);
-          }}
-          title="Copy retro link"
-          className={cn(
-            "flex h-9 w-full items-center gap-2.5 rounded-xl border border-[#ded8e8]/75 bg-white/48 px-2.5 text-xs font-bold text-slate-500 transition hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#4f4974]",
-            collapsed && "justify-center px-0"
-          )}
-        >
-          <Link2 className="h-3.5 w-3.5" />
-          {contentVisible ? (linkCopied ? "Link copied" : "Share link") : null}
-        </button>
-
-        <button
-          type="button"
-          onClick={onOpenSupport}
-          title="Support"
-          className={cn(
-            "flex h-9 w-full items-center gap-2.5 rounded-xl border border-[#ded8e8]/75 bg-white/48 px-2.5 text-xs font-bold text-slate-500 transition hover:border-[#c9c2d7] hover:bg-white/72 hover:text-[#4f4974]",
-            collapsed && "justify-center px-0"
-          )}
-        >
-          <LifeBuoy className="h-3.5 w-3.5" />
-          {contentVisible ? "Support" : null}
-        </button>
-      </div>
-
-      <div className="mt-auto pt-4">
-        <div className={contentVisible ? "space-y-2.5" : "hidden"}>
-          <div id={TROLL_PORTAL_ID} className={currentPhase === "discuss" ? "block" : "hidden"} />
-          <div className="rounded-2xl border border-[#ded8e8]/70 bg-white/52 p-3 text-xs text-[#343052] shadow-sm">
-            <p className="font-bold">Meeting flow</p>
-            <p className="mt-1 leading-5 text-[#6f6888]">Join, reflect, then discuss decisions together.</p>
-          </div>
+        <div className="mt-auto shrink-0 overflow-hidden pt-2">
+          {discuss && !collapsed ? (
+            <div id={TROLL_PORTAL_ID} className="w-full min-w-0 overflow-hidden" aria-hidden={false} />
+          ) : !discuss ? (
+            <div className={cn("rounded-xl border border-[#ded8e8]/70 bg-white/52 p-2.5 text-xs text-[#343052] shadow-sm", MEETING_CARD)}>
+              <p className={cn("font-bold transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none", clip)}>Meeting flow</p>
+              <p className={cn("mt-1 leading-snug text-[#6f6888] transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none", clip)}>
+                Join, reflect, then discuss decisions together.
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </aside>

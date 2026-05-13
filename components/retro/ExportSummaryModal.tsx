@@ -56,8 +56,8 @@ export function ExportSummaryModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/30 p-4 backdrop-blur-md">
-      <section className="w-full max-w-4xl overflow-hidden rounded-[2rem] border border-[#ded8e8]/80 bg-white text-slate-950 shadow-[0_28px_90px_-42px_rgba(49,46,78,0.42)]">
+    <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/30 p-3 backdrop-blur-md sm:p-4">
+      <section className="flex max-h-[min(92dvh,calc(100dvh-1.5rem))] w-full max-w-4xl flex-col overflow-hidden rounded-[1.5rem] border border-[#ded8e8]/80 bg-white text-slate-950 shadow-[0_28px_90px_-42px_rgba(49,46,78,0.42)] sm:rounded-[2rem]">
         <div className="flex items-start justify-between gap-4 border-b border-[#ded8e8] p-5">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#6d668f]">Final export</p>
@@ -74,7 +74,7 @@ export function ExportSummaryModal({
           </button>
         </div>
 
-        <div className="grid max-h-[62vh] min-h-0 gap-0 overflow-hidden lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="grid max-h-[min(58dvh,50vh)] min-h-0 gap-0 overflow-hidden lg:max-h-[62vh] lg:grid-cols-[0.95fr_1.05fr]">
           <div className="scroll-stable min-h-0 overflow-y-auto border-r border-[#ded8e8] bg-[#f7f5f0] p-5">
             <h3 className="text-sm font-extrabold uppercase tracking-[0.16em] text-[#6d668f]">Actions</h3>
             {orderedActionItems.length === 0 ? (

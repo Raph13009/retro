@@ -72,7 +72,9 @@ export function GroupColumn({
     <section
       ref={setNodeRef}
       className={cn(
-        "retro-column-surface flex h-full min-h-0 w-[360px] shrink-0 flex-col rounded-[2rem] p-5 backdrop-blur-xl transition",
+        "retro-column-surface flex h-full min-h-0 shrink-0 flex-col rounded-[2rem] p-5 backdrop-blur-xl transition",
+        "w-[min(360px,calc(100vw-1.5rem))] min-w-[280px] max-md:min-w-[260px]",
+        "md:w-[380px] md:min-w-[340px] md:max-w-[380px]",
         isOver && "border-[#8c83ad] bg-white ring-2 ring-[#d6d1e2]/80"
       )}
     >
@@ -114,7 +116,7 @@ export function GroupColumn({
       ) : null}
 
       {expanded ? (
-        <div className="scrollbar-hide min-h-0 flex-1 space-y-4 overflow-y-auto px-1.5 pb-8 pt-2">
+        <div className="scrollbar-hide min-h-0 flex-1 space-y-4 overflow-y-auto px-1.5 pb-4 pt-2 sm:pb-5">
           {groups.map((group) => (
             <CardGroup
               key={group.id}

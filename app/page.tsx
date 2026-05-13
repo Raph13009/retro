@@ -7,6 +7,7 @@ import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { ImageTrail } from "@/components/retro/ImageTrail";
 import { DEFAULT_COLUMNS } from "@/lib/retro/types";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
+import { setFacilitatorClaim } from "@/lib/retro/facilitator-claim";
 import { cn, randomRoomSlug } from "@/lib/utils";
 
 const homeTrailImages = [
@@ -78,7 +79,8 @@ export default function HomePage() {
         throw columnsError;
       }
 
-      router.push(`/room/${room.slug}?creator=1`);
+      setFacilitatorClaim(room.slug, room.id);
+      router.push(`/room/${room.slug}`);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Could not create the room.");
     } finally {
@@ -87,33 +89,51 @@ export default function HomePage() {
   }
 
   return (
-    <main className="relative h-dvh overflow-hidden px-6 py-10 text-slate-100">
+    <main
+      className={cn(
+        "relative w-full overflow-x-hidden text-slate-100",
+        "min-h-dvh px-4 py-10 sm:px-6 sm:py-12",
+        "max-lg:overflow-y-auto",
+        "lg:flex lg:min-h-dvh lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:px-10 lg:py-0 xl:px-14"
+      )}
+    >
       <ImageTrail items={homeTrailImages} variant={5} />
-      <section className="relative mx-auto flex h-full max-w-6xl items-center">
-        <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-sm text-slate-300 shadow-sm backdrop-blur-xl">
-              <Sparkles className="h-4 w-4 text-cyan-200" />
+      <section
+        className={cn(
+          "relative z-10 mx-auto w-full flex-1",
+          "max-lg:max-w-6xl",
+          "lg:flex lg:max-w-[min(1080px,calc(100vw-5rem))] lg:flex-col lg:justify-center lg:py-10 xl:max-w-[min(1120px,calc(100vw-6rem))]"
+        )}
+      >
+        <div
+          className={cn(
+            "grid w-full gap-8 sm:gap-10",
+            "lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start lg:gap-x-12 lg:gap-y-8 xl:gap-x-14"
+          )}
+        >
+          <div className="flex min-w-0 flex-col lg:max-w-[34rem] xl:max-w-[36rem]">
+            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-sm text-slate-300 shadow-sm backdrop-blur-xl sm:mb-6">
+              <Sparkles className="h-4 w-4 shrink-0 text-cyan-200" />
               Built between two Partner Squad tickets
             </div>
-            <h1 className="max-w-3xl text-5xl font-semibold tracking-[-0.05em] text-white md:text-7xl">
+            <h1 className="text-balance text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl xl:text-7xl">
               Finally a decent retro tool
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
+            <p className="mt-5 max-w-xl text-pretty text-lg leading-8 text-slate-300 sm:mt-6">
               Create rooms, group cards, vote together and actually move forward.
             </p>
             <Link
               href="/ongoing"
-              className="ghost-button mt-8 inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold"
+              className="ghost-button mt-7 inline-flex w-fit items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold sm:mt-8"
             >
               Join ongoing retro
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
-          <div className="liquid-panel rounded-[2rem] p-6">
+          <div className="liquid-panel rounded-[1.75rem] p-5 shadow-[0_28px_90px_-48px_rgba(0,0,0,0.35)] sm:rounded-[2rem] sm:p-6 lg:shadow-[0_32px_100px_-50px_rgba(49,46,78,0.22)]">
             <div>
-              <div className="mb-6">
+              <div className="mb-5 sm:mb-6">
                 <h2 className="text-2xl font-semibold tracking-tight text-neutral-950">Create a retro room</h2>
                 <p className="mt-2 text-sm text-slate-500">You will get a shareable room link instantly.</p>
               </div>

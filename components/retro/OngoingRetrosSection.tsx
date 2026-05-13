@@ -1,28 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Clock3, Radio, UsersRound } from "lucide-react";
 import type { Participant, Room } from "@/lib/retro/types";
 import { normalizePhase, phaseLabel } from "@/lib/retro/types";
 import { getRemainingSeconds } from "@/lib/retro/timer";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
+import { OngoingRetrosGridSkeleton } from "@/components/retro/RetroSkeletons";
 import { cn, formatTime } from "@/lib/utils";
 
 type DiscoverableRoom = Room & {
   participants: Participant[];
 };
 
+const SKELETON_DELAY_MS = 140;
+
 export function OngoingRetrosSection() {
   const [rooms, setRooms] = useState<DiscoverableRoom[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(hasSupabaseEnv);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(false);
+  const firstFetchDoneRef = useRef(false);
+  const skeletonTimerRef = useRef<number | null>(null);
 
   const loadDiscoverableRooms = useCallback(async () => {
     if (!supabase) {
       return;
     }
 
-    setIsLoading(true);
+    const silent = firstFetchDoneRef.current;
+    if (silent) {
+      setIsRefreshing(true);
+    } else {
+      setInitialLoading(true);
+    }
+
     const { data: roomData, error: roomError } = await supabase
       .from("rooms")
       .select("*")
@@ -30,7 +43,17 @@ export function OngoingRetrosSection() {
       .limit(20);
 
     if (roomError) {
-      setIsLoading(false);
+      if (silent) {
+        setIsRefreshing(false);
+      } else {
+        if (skeletonTimerRef.current) {
+          window.clearTimeout(skeletonTimerRef.current);
+          skeletonTimerRef.current = null;
+        }
+        setShowSkeleton(false);
+        setInitialLoading(false);
+        firstFetchDoneRef.current = true;
+      }
       return;
     }
 
@@ -48,8 +71,41 @@ export function OngoingRetrosSection() {
         participants: participants.filter((participant) => participant.room_id === room.id)
       }))
     );
-    setIsLoading(false);
+
+    if (silent) {
+      setIsRefreshing(false);
+    } else {
+      if (skeletonTimerRef.current) {
+        window.clearTimeout(skeletonTimerRef.current);
+        skeletonTimerRef.current = null;
+      }
+      setShowSkeleton(false);
+      setInitialLoading(false);
+      firstFetchDoneRef.current = true;
+    }
   }, []);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      if (skeletonTimerRef.current) {
+        window.clearTimeout(skeletonTimerRef.current);
+        skeletonTimerRef.current = null;
+      }
+      setShowSkeleton(false);
+      return;
+    }
+
+    skeletonTimerRef.current = window.setTimeout(() => {
+      setShowSkeleton(true);
+    }, SKELETON_DELAY_MS);
+
+    return () => {
+      if (skeletonTimerRef.current) {
+        window.clearTimeout(skeletonTimerRef.current);
+        skeletonTimerRef.current = null;
+      }
+    };
+  }, [initialLoading]);
 
   useEffect(() => {
     if (!supabase) {
@@ -84,19 +140,25 @@ export function OngoingRetrosSection() {
           <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-neutral-950">Ongoing retros</h2>
           <p className="mt-2 text-sm text-slate-600">Join rooms waiting to start or already live.</p>
         </div>
-        {isLoading ? <p className="text-sm font-medium text-slate-400">Refreshing rooms...</p> : null}
+        {isRefreshing ? (
+          <p className="text-sm font-medium text-slate-400 transition-opacity duration-300">Updating rooms…</p>
+        ) : null}
       </div>
 
       {!hasSupabaseEnv ? (
         <div className="liquid-surface rounded-[1.75rem] p-5 text-sm font-medium text-slate-600">
           Add Supabase env vars to see rooms.
         </div>
+      ) : initialLoading && showSkeleton ? (
+        <OngoingRetrosGridSkeleton count={5} />
+      ) : initialLoading ? (
+        <div className="min-h-[12rem]" aria-busy="true" aria-label="Loading rooms" />
       ) : rooms.length === 0 ? (
         <div className="liquid-surface rounded-[1.75rem] p-6 text-sm font-semibold text-slate-600">
           No squads are currently suffering in retro meetings.
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 content-fade-in">
           {rooms.map((room) => (
             <ActiveRetroCard key={room.id} room={room} />
           ))}

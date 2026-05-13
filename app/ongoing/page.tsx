@@ -4,7 +4,7 @@ import { OngoingRetrosSection } from "@/components/retro/OngoingRetrosSection";
 
 export default function OngoingRetrosPage() {
   return (
-    <main className="relative z-10 min-h-dvh overflow-y-auto px-6 py-10 text-neutral-950">
+    <main className="relative z-10 min-h-dvh overflow-x-hidden overflow-y-auto px-4 py-8 text-neutral-950 sm:px-6 sm:py-10">
       <div className="mx-auto mb-8 flex max-w-6xl items-center justify-between gap-4">
         <Link href="/" className="ghost-button inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold">
           <ArrowLeft className="h-4 w-4" />

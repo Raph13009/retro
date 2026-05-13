@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { AppModal } from "@/components/retro/AppModal";
-import { AppToast } from "@/components/retro/AppToast";
+import { AppToast, RetroNoticeToast } from "@/components/retro/AppToast";
 import { CommentDrawer } from "@/components/retro/CommentDrawer";
 import { ConfirmModal } from "@/components/retro/ConfirmModal";
 import { EvilEye } from "@/components/retro/EvilEye";
@@ -13,8 +13,11 @@ import { ExportSummaryModal } from "@/components/retro/ExportSummaryModal";
 import { GroupBoard } from "@/components/retro/GroupBoard";
 import { RenameGroupModal } from "@/components/retro/RenameGroupModal";
 import { RetroLayout } from "@/components/retro/RetroLayout";
+import { RoomLoadingSkeleton } from "@/components/retro/RetroSkeletons";
 import { SupportModal } from "@/components/retro/SupportModal";
+import { dispatchSelfFireTooltip } from "@/components/retro/useSelfFireTooltip";
 import { avatarColorForName, getStoredParticipant, storeParticipant } from "@/lib/retro/local-participant";
+import { clearFacilitatorClaim, hasFacilitatorClaimForRoom } from "@/lib/retro/facilitator-claim";
 import { getRemainingSeconds, timerEnded } from "@/lib/retro/timer";
 import { TROLL_GROUP_CREATED_BY, TROLL_GROUP_TITLE, isTrollGroup } from "@/lib/retro/troll";
 import type {
@@ -30,7 +33,8 @@ import type {
   Room,
   Vote
 } from "@/lib/retro/types";
-import { getVoteLimit, normalizePhase } from "@/lib/retro/types";
+import { getVoteLimit, normalizePhase, normalizeRoomRow } from "@/lib/retro/types";
+import { readLiveCursorsEnabled, writeLiveCursorsEnabled } from "@/lib/retro/live-cursors-preference";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 
 type RetroAppProps = {
@@ -92,6 +96,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [selectedCard, setSelectedCard] = useState<RetroCard | null>(null);
   const [joinName, setJoinName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [showRoomLoadSkeleton, setShowRoomLoadSkeleton] = useState(false);
+  const roomSkeletonTimerRef = useRef<number | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState("");
   const [operationError, setOperationError] = useState("");
@@ -104,17 +110,14 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [groupToRename, setGroupToRename] = useState<CardGroup | null>(null);
   const operationErrorTimeoutRef = useRef<number | null>(null);
   const oneMinuteNoticeKeyRef = useRef<string | null>(null);
+  const [retroNoticeBanner, setRetroNoticeBanner] = useState({ visible: false, message: "" });
+  const selfFireLastGlobalRef = useRef(0);
+  const selfFireLastByCardRef = useRef<Record<string, number>>({});
+  const [cursorModeHint, setCursorModeHint] = useState("");
+  const cursorHintTimeoutRef = useRef<number | null>(null);
+  const [liveCursorsLocalEnabled, setLiveCursorsLocalEnabled] = useState(() => readLiveCursorsEnabled(roomSlug));
 
-  const creatorRequested = useMemo(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    return new URLSearchParams(window.location.search).get("creator") === "1";
-  }, []);
-
-  const fallbackFacilitatorId = room?.creator_participant_id ?? participants[0]?.id ?? null;
-  const isCreator = Boolean(room && participant && fallbackFacilitatorId === participant.id);
+  const isCreator = Boolean(room && participant && room.creator_participant_id === participant.id);
   const currentPhase = room ? normalizePhase(room.current_phase) : "reflect";
 
   const showToast = useCallback((message: string) => {
@@ -163,8 +166,9 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       ]);
 
     if (roomResult.data) {
-      setRoom(roomResult.data as Room);
-      setRemainingSeconds(getRemainingSeconds(roomResult.data as Room));
+      const normalizedRoom = normalizeRoomRow(roomResult.data as Record<string, unknown>);
+      setRoom(normalizedRoom);
+      setRemainingSeconds(getRemainingSeconds(normalizedRoom));
     }
     setParticipants((participantsResult.data ?? []) as Participant[]);
     setColumns((columnsResult.data ?? []) as RetroColumn[]);
@@ -221,7 +225,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         return;
       }
 
-      const loadedRoom = roomData as Room;
+      const loadedRoom = normalizeRoomRow(roomData as Record<string, unknown>);
       setRoom(loadedRoom);
       setRemainingSeconds(getRemainingSeconds(loadedRoom));
       await loadSnapshot(loadedRoom.id);
@@ -253,21 +257,54 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }, [loadSnapshot, roomSlug]);
 
   useEffect(() => {
+    if (!isLoading) {
+      if (roomSkeletonTimerRef.current) {
+        window.clearTimeout(roomSkeletonTimerRef.current);
+        roomSkeletonTimerRef.current = null;
+      }
+      setShowRoomLoadSkeleton(false);
+      return;
+    }
+
+    roomSkeletonTimerRef.current = window.setTimeout(() => {
+      setShowRoomLoadSkeleton(true);
+    }, 140);
+
+    return () => {
+      if (roomSkeletonTimerRef.current) {
+        window.clearTimeout(roomSkeletonTimerRef.current);
+        roomSkeletonTimerRef.current = null;
+      }
+    };
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("creator")) {
+      url.searchParams.delete("creator");
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState({}, "", next);
+    }
+  }, [roomSlug]);
+
+  useEffect(() => {
+    setLiveCursorsLocalEnabled(readLiveCursorsEnabled(roomSlug));
+  }, [roomSlug]);
+
+  useEffect(() => {
     return () => {
       if (operationErrorTimeoutRef.current) {
         window.clearTimeout(operationErrorTimeoutRef.current);
       }
+      if (cursorHintTimeoutRef.current) {
+        window.clearTimeout(cursorHintTimeoutRef.current);
+      }
     };
   }, []);
-
-  useEffect(() => {
-    if (!supabase || !room || !participant || room.creator_participant_id || !isCreator) {
-      return;
-    }
-
-    const client = supabase;
-    void client.from("rooms").update({ creator_participant_id: participant.id }).eq("id", room.id);
-  }, [isCreator, participant, room]);
 
   useEffect(() => {
     if (!supabase || !room || cardGroups.length === 0) {
@@ -508,26 +545,34 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       storeParticipant(roomSlug, joinedParticipant);
       setParticipant(joinedParticipant);
 
-      if (creatorRequested && !room.creator_participant_id) {
-        const { error: creatorError } = await supabase
-          .from("rooms")
-          .update({ creator_participant_id: joinedParticipant.id, status: "waiting" })
-          .eq("id", room.id);
+      const claimForThisRoom = hasFacilitatorClaimForRoom(roomSlug, room.id);
+      if (claimForThisRoom) {
+        if (!room.creator_participant_id) {
+          const { data: updatedRoom, error: creatorError } = await supabase
+            .from("rooms")
+            .update({ creator_participant_id: joinedParticipant.id })
+            .eq("id", room.id)
+            .is("creator_participant_id", null)
+            .select("creator_participant_id")
+            .maybeSingle();
 
-        if (creatorError) {
-          throw creatorError;
+          if (creatorError) {
+            throw creatorError;
+          }
+
+          if (updatedRoom && (updatedRoom as Room).creator_participant_id === joinedParticipant.id) {
+            setRoom((currentRoom) =>
+              currentRoom
+                ? {
+                    ...currentRoom,
+                    creator_participant_id: joinedParticipant.id
+                  }
+                : currentRoom
+            );
+          }
         }
 
-        setRoom((currentRoom) =>
-          currentRoom
-            ? {
-                ...currentRoom,
-                creator_participant_id: joinedParticipant.id,
-                status: "waiting"
-              }
-            : currentRoom
-        );
-        window.history.replaceState({}, "", `/room/${room.slug}`);
+        clearFacilitatorClaim(roomSlug);
       }
 
       await loadSnapshot(room.id);
@@ -561,6 +606,26 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }, "Room update failed");
   }
 
+  const showCursorModeHint = useCallback((message: string) => {
+    setCursorModeHint(message);
+    if (cursorHintTimeoutRef.current) {
+      window.clearTimeout(cursorHintTimeoutRef.current);
+    }
+    cursorHintTimeoutRef.current = window.setTimeout(() => {
+      setCursorModeHint("");
+      cursorHintTimeoutRef.current = null;
+    }, 2600);
+  }, []);
+
+  const toggleLiveCursorsLocal = useCallback(() => {
+    setLiveCursorsLocalEnabled((prev) => {
+      const next = !prev;
+      writeLiveCursorsEnabled(roomSlug, next);
+      showCursorModeHint(next ? "chaos mode enabled" : "focus mode enabled");
+      return next;
+    });
+  }, [roomSlug, showCursorModeHint]);
+
   async function updateVoteLimit(limit: number) {
     if (!isCreator) {
       return false;
@@ -581,7 +646,6 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const nextDuration = durationSeconds ?? room.timer_duration_seconds;
     const currentRemaining = getRemainingSeconds(room);
     return updateRoom({
-      creator_participant_id: room.creator_participant_id ?? participant?.id ?? null,
       current_phase: "reflect",
       cards_revealed: false,
       timer_duration_seconds: nextDuration,
@@ -1443,6 +1507,16 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       if (insertError) {
         throw insertError;
       }
+
+      if (emoji === "🔥" && card.author_participant_id === participantId) {
+        const now = Date.now();
+        const lastCard = selfFireLastByCardRef.current[card.id] ?? 0;
+        if (now - selfFireLastGlobalRef.current >= 8000 && now - lastCard >= 12_000) {
+          selfFireLastGlobalRef.current = now;
+          selfFireLastByCardRef.current[card.id] = now;
+          dispatchSelfFireTooltip(card.id);
+        }
+      }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : "Reaction failed";
       showMutationError(`Reaction failed: ${message}`);
@@ -1552,11 +1626,11 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   if (isLoading) {
-    return (
-      <main className="grid min-h-screen place-items-center">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
-      </main>
-    );
+    if (showRoomLoadSkeleton) {
+      return <RoomLoadingSkeleton />;
+    }
+
+    return <main className="relative z-10 min-h-dvh bg-[#f6f3ed]" aria-busy="true" aria-label="Loading room" />;
   }
 
   if (error && !room) {
@@ -1577,11 +1651,11 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   if (!participant) {
-    const claimingFacilitator = creatorRequested && !room.creator_participant_id;
+    const claimingFacilitator = hasFacilitatorClaimForRoom(roomSlug, room.id) && !room.creator_participant_id;
 
     return (
-      <main className="grid h-dvh place-items-center p-6 text-neutral-950">
-        <form onSubmit={joinRoom} className="liquid-panel w-full max-w-md rounded-[2rem] p-6">
+      <main className="grid min-h-dvh place-items-center p-4 text-neutral-950 sm:p-6">
+        <form onSubmit={joinRoom} className="liquid-panel w-full max-w-md rounded-[1.75rem] p-5 sm:rounded-[2rem] sm:p-6">
           <div className="mx-auto mb-5 h-32 w-full max-w-xs overflow-hidden rounded-[1.75rem] border border-[#ded8e8] bg-neutral-950 shadow-[0_24px_70px_-42px_rgba(49,46,78,0.38)]">
             <EvilEye
               eyeColor="#FF6F37"
@@ -1623,6 +1697,11 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
             {isJoining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {claimingFacilitator ? "Enter as Facilitator" : "Join room"}
           </button>
+          <div className="mt-5 text-center">
+            <Link href="/" className="text-sm font-semibold text-[#6d668f] underline decoration-[#c9c2d7] underline-offset-2 hover:text-[#4f4974]">
+              Back home
+            </Link>
+          </div>
         </form>
       </main>
     );
@@ -1630,6 +1709,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
   return (
     <RetroLayout
+      className="content-fade-in"
       room={room}
       participant={participant}
       participants={participants}
@@ -1637,6 +1717,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       phase={currentPhase}
       isCreator={isCreator}
       remainingSeconds={remainingSeconds}
+      liveCursorsEnabled={liveCursorsLocalEnabled}
       onVoteLimitChange={updateVoteLimit}
       onSaveTimerDuration={saveTimerDuration}
       onStartTimer={startTimer}
@@ -1650,6 +1731,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         void closeRoom();
       }}
       onOpenSupport={() => setSupportOpen(true)}
+      onExitHome={() => router.push("/")}
+      onLiveCursorsToggle={toggleLiveCursorsLocal}
     >
       {room.timer_status === "ended" && currentPhase !== "discuss" ? (
         <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-[#c05f5f] px-4 py-2 text-sm font-medium text-white shadow-[0_14px_30px_-22px_rgba(192,95,95,0.54)]">
@@ -1657,6 +1740,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         </div>
       ) : null}
       <AppToast message={operationError} onClose={() => setOperationError("")} />
+      {cursorModeHint ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] left-1/2 z-[92] max-w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 rounded-full border border-[#ded8e8]/70 bg-white/88 px-3 py-1.5 text-center text-[11px] font-semibold tracking-wide text-[#5c5478] shadow-[0_12px_40px_-28px_rgba(49,46,78,0.45)] backdrop-blur-md"
+        >
+          {cursorModeHint}
+        </div>
+      ) : null}
+      <RetroNoticeToast
+        visible={retroNoticeBanner.visible}
+        message={retroNoticeBanner.message}
+        onClose={() => setRetroNoticeBanner({ visible: false, message: "" })}
+      />
       <OneMinuteTimerNotification visible={oneMinuteNoticeVisible} onClose={() => setOneMinuteNoticeVisible(false)} />
       <ConfirmModal
         open={Boolean(confirmRequest)}

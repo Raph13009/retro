@@ -9,12 +9,14 @@ import {
   useDroppable,
   type CollisionDetection
 } from "@dnd-kit/core";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import type { ActionItem, CardGroup, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
 import { ActionsColumn } from "@/components/retro/ActionsColumn";
 import { GhostReflection, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
 import { GroupColumn } from "@/components/retro/GroupColumn";
+import { useSidebarUi } from "@/components/retro/SidebarUiContext";
 import { TROLL_DROP_ID, TROLL_PORTAL_ID, isTrollGroup } from "@/lib/retro/troll";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +93,7 @@ export function GroupBoard({
   onUpdateActionItem,
   onMoveCardToTroll
 }: GroupBoardProps) {
+  const { collapsed: sidebarCollapsed } = useSidebarUi();
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [trollPortal, setTrollPortal] = useState<HTMLElement | null>(null);
   const orderedColumns = [...columns].sort((first, second) => first.sort_order - second.sort_order);
@@ -104,7 +107,7 @@ export function GroupBoard({
 
   useEffect(() => {
     setTrollPortal(document.getElementById(TROLL_PORTAL_ID));
-  }, [phase]);
+  }, [phase, sidebarCollapsed]);
 
   function handleDragStart(event: DragStartEvent) {
     const activeId = String(event.active.id);
@@ -178,7 +181,7 @@ export function GroupBoard({
 
   return (
     <DndContext collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-      <div className="scroll-stable flex h-full min-h-0 gap-6 overflow-x-auto bg-transparent">
+      <div className="scroll-stable flex h-full min-h-0 gap-5 overflow-x-auto overflow-y-hidden pb-2 md:gap-6 md:pb-3">
         {orderedColumns.map((column) => (
           <GroupColumn
             key={column.id}
@@ -208,7 +211,10 @@ export function GroupBoard({
         ) : null}
       </div>
       {phase === "discuss" && trollPortal
-        ? createPortal(<TrollDropZone cards={trollCards} participants={participants} />, trollPortal)
+        ? createPortal(
+            <TrollDropZone cards={trollCards} participants={participants} />,
+            trollPortal
+          )
         : null}
       <DragOverlay zIndex={9999} dropAnimation={null}>
         {activeCard ? <CardDragOverlay card={activeCard} participant={activeParticipant} phase={phase} currentParticipantId={currentParticipantId} /> : null}
@@ -219,58 +225,159 @@ export function GroupBoard({
 
 function TrollDropZone({ cards, participants }: { cards: RetroCard[]; participants: Participant[] }) {
   const [expanded, setExpanded] = useState(false);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const [overlayLayout, setOverlayLayout] = useState<{ left: number; width: number; bottom: number; maxHeight: number } | null>(null);
   const { setNodeRef, isOver } = useDroppable({ id: TROLL_DROP_ID });
   const orderedCards = useMemo(() => [...cards].sort((first, second) => first.position - second.position || first.created_at.localeCompare(second.created_at)), [cards]);
   const topCard = orderedCards[0];
   const layerCount = Math.min(Math.max(orderedCards.length - 1, 0), 3);
 
-  return (
-    <section
-      ref={setNodeRef}
-      className={cn(
-        "rounded-2xl border border-[#ded8e8]/85 bg-white/58 p-2.5 text-slate-950 shadow-sm transition",
-        isOver && "border-[#b9a8cb] bg-[#f7f1f7] ring-2 ring-[#d6bfd9]/70"
-      )}
-    >
-      <button type="button" onClick={() => setExpanded((value) => !value)} className="flex w-full items-center justify-between gap-2 text-left">
-        <div className="min-w-0">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#9b6f96]">Troll</p>
-          <p className="mt-0.5 truncate text-sm font-bold text-[#3f3348]">😈 Joke pile ({orderedCards.length})</p>
-        </div>
-        <span className="shrink-0 rounded-full bg-[#f3edf5] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#7b597a]">
-          {expanded ? "Hide" : "Show"}
-        </span>
-      </button>
+  const setDropAndAnchorRef = (node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    anchorRef.current = node;
+  };
 
-      {orderedCards.length === 0 ? (
-        <div className="mt-2 grid min-h-14 place-items-center rounded-xl border border-dashed border-[#d8c7dc] bg-white/50 p-2 text-center text-[11px] font-bold text-[#8b6689] shadow-inner">
-          Drop joke cards here.
-        </div>
-      ) : expanded ? (
-        <div className="mt-2 space-y-1.5">
-          {orderedCards.map((card) => {
-            const participant = participants.find((candidate) => candidate.id === card.author_participant_id);
-            return <TrollCard key={card.id} card={card} participant={participant} />;
-          })}
-        </div>
-      ) : (
-        <button type="button" onClick={() => setExpanded(true)} className="mt-2 block w-full text-left">
-          <div className="relative h-[4.6rem]">
-            {Array.from({ length: layerCount }).map((_, index) => (
-              <div
-                key={`troll-layer-${index}`}
-                className="retro-stack-layer pointer-events-none absolute inset-x-2 h-14 rounded-xl"
-                style={{ top: (index + 1) * 5, zIndex: layerCount - index, opacity: 0.66 - index * 0.1 }}
-              />
-            ))}
-            <div className="retro-card-surface absolute inset-x-0 top-0 z-10 min-h-14 rounded-xl p-2.5">
-              <p className="line-clamp-2 text-xs font-semibold leading-4 text-slate-800">{topCard?.content}</p>
-              <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#9b6f96]">Expand pile</p>
+  useLayoutEffect(() => {
+    if (!expanded) {
+      setOverlayLayout(null);
+      return;
+    }
+
+    function measure() {
+      const el = anchorRef.current;
+      if (!el) {
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const gap = 10;
+      const spaceAbove = rect.top - gap;
+      setOverlayLayout({
+        left: rect.left,
+        width: rect.width,
+        bottom: window.innerHeight - rect.top + gap,
+        maxHeight: Math.max(140, Math.min(window.innerHeight * 0.72, spaceAbove))
+      });
+    }
+
+    measure();
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded) {
+      return;
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setExpanded(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
+
+  const overlay =
+    expanded && overlayLayout && typeof document !== "undefined"
+      ? createPortal(
+          <>
+            <button
+              type="button"
+              aria-label="Close troll pile"
+              className="fixed inset-0 z-[120] cursor-default bg-slate-950/15 backdrop-blur-[0.5px]"
+              onClick={() => setExpanded(false)}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="troll-pile-title"
+              className="scroll-stable fixed z-[121] flex flex-col overflow-hidden rounded-xl border border-[#ded8e8]/90 bg-white/97 shadow-[0_24px_70px_-28px_rgba(49,46,78,0.45)] backdrop-blur-xl"
+              style={{
+                left: overlayLayout.left,
+                width: overlayLayout.width,
+                bottom: overlayLayout.bottom,
+                maxHeight: overlayLayout.maxHeight
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#e8def0]/80 px-2.5 py-2">
+                <p id="troll-pile-title" className="min-w-0 truncate text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#9b6f96]">
+                  Troll pile ({orderedCards.length})
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-[#f1eef6] hover:text-slate-800"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                {orderedCards.length === 0 ? (
+                  <p className="py-6 text-center text-[11px] font-semibold text-[#8b6689]">Drop joke cards here.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {orderedCards.map((card) => {
+                      const participant = participants.find((candidate) => candidate.id === card.author_participant_id);
+                      return <TrollCard key={card.id} card={card} participant={participant} />;
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
+          </>,
+          document.body
+        )
+      : null;
+
+  return (
+    <>
+      {overlay}
+      <div
+        ref={setDropAndAnchorRef}
+        className={cn(
+          "relative z-10 flex w-full min-w-0 flex-col gap-2 rounded-xl border border-[#ded8e8]/75 bg-white/58 p-2 text-slate-950 shadow-sm transition-colors",
+          isOver && "border-[#c4b0d4] bg-[#faf7fb]"
+        )}
+      >
+        <button type="button" onClick={() => setExpanded((value) => !value)} className="flex w-full items-center justify-between gap-2 rounded-lg px-0.5 py-0.5 text-left">
+          <div className="min-w-0">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#9b6f96]">Troll</p>
+            <p className="truncate text-xs font-bold leading-tight text-[#3f3348]">😈 Joke pile ({orderedCards.length})</p>
           </div>
+          <span className="shrink-0 rounded-md bg-[#f3edf5] px-2 py-0.5 text-[10px] font-bold text-[#7b597a]">{expanded ? "Close" : "Open"}</span>
         </button>
-      )}
-    </section>
+
+        {orderedCards.length === 0 ? (
+          <div className="grid min-h-[2.75rem] place-items-center rounded-lg border border-dashed border-[#d8c7dc]/90 bg-white/50 px-2 py-2 text-center text-[11px] font-semibold leading-snug text-[#8b6689]">
+            Drop joke cards here.
+          </div>
+        ) : expanded ? null : (
+          <button type="button" onClick={() => setExpanded(true)} className="block w-full text-left">
+            <div className="relative h-[3.5rem]">
+              {Array.from({ length: layerCount }).map((_, index) => (
+                <div
+                  key={`troll-layer-${index}`}
+                  className="retro-stack-layer pointer-events-none absolute inset-x-1.5 h-11 rounded-lg"
+                  style={{ top: (index + 1) * 4, zIndex: layerCount - index, opacity: 0.52 - index * 0.1 }}
+                />
+              ))}
+              <div className="retro-card-surface absolute inset-x-0 top-0 z-10 min-h-[2.75rem] rounded-lg px-2.5 py-2">
+                <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-slate-800">{topCard?.content}</p>
+                <p className="mt-0.5 text-[9px] font-bold uppercase tracking-wide text-[#9b6f96]/90">Open pile</p>
+              </div>
+            </div>
+          </button>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -281,26 +388,26 @@ function TrollCard({ card, participant }: { card: RetroCard; participant?: Parti
     <article
       ref={setNodeRef}
       className={cn(
-        "retro-card-surface rounded-xl p-2.5",
+        "retro-card-surface rounded-md p-1.5",
         "cursor-grab active:cursor-grabbing",
         isDragging && "opacity-35"
       )}
       {...attributes}
       {...listeners}
     >
-      <p className="whitespace-pre-wrap text-xs font-semibold leading-4 text-slate-800">{card.content}</p>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-slate-400">
+      <p className="whitespace-pre-wrap text-[11px] font-semibold leading-snug text-slate-800">{card.content}</p>
+      <div className="mt-1 flex items-center justify-between gap-1">
+        <div className="flex min-w-0 items-center gap-1 text-[9px] font-bold text-slate-400">
           <span
-            className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full text-[9px] text-white"
+            className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[8px] text-white"
             style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
           >
             {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
           </span>
           <span className="truncate">{participant?.name ?? "Unknown"}</span>
         </div>
-        <span className="shrink-0 rounded-full bg-[#f4eef6] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#8b6689]">
-          Drag out
+        <span className="shrink-0 rounded bg-[#f4eef6]/90 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-[#8b6689]">
+          Out
         </span>
       </div>
     </article>

@@ -19,7 +19,9 @@ export function ActionsColumn({ actionItems, cards, participants, onUpdateAction
     <section
       ref={setNodeRef}
       className={cn(
-        "flex h-full min-h-0 w-[360px] shrink-0 flex-col rounded-[2rem] border border-[#cddfd2]/90 bg-[#eef5ef]/90 p-5 shadow-[0_22px_58px_-36px_rgba(63,104,75,0.28)] ring-1 ring-white/70 backdrop-blur-xl transition",
+        "flex h-full min-h-0 shrink-0 flex-col rounded-[2rem] border border-[#cddfd2]/90 bg-[#eef5ef]/90 p-5 shadow-[0_22px_58px_-36px_rgba(63,104,75,0.28)] ring-1 ring-white/70 backdrop-blur-xl transition",
+        "w-[min(360px,calc(100vw-1.5rem))] min-w-[280px] max-md:min-w-[260px]",
+        "md:w-[380px] md:min-w-[340px] md:max-w-[380px]",
         isOver && "border-[#7fa189] bg-white ring-2 ring-[#cddfd2]/80"
       )}
     >
@@ -36,7 +38,7 @@ export function ActionsColumn({ actionItems, cards, participants, onUpdateAction
         <span className="rounded-full border border-[#cddfd2] bg-white/62 px-2.5 py-1 text-xs font-extrabold text-[#557b5e]">{orderedItems.length}</span>
       </div>
 
-      <div className="scrollbar-hide min-h-0 flex-1 space-y-3 overflow-y-auto px-1.5 pb-8 pt-2">
+      <div className="scrollbar-hide min-h-0 flex-1 space-y-3 overflow-y-auto px-1.5 pb-4 pt-2 sm:pb-5">
         {orderedItems.length === 0 ? (
           <div className="grid min-h-48 place-items-center rounded-[1.5rem] border border-dashed border-[#b9d0bf]/80 bg-white/55 p-5 text-center text-sm font-bold text-[#557b5e] shadow-inner">
             Drag cards here to create action items.

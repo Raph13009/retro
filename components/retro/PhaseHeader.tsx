@@ -1,10 +1,14 @@
+"use client";
+
 import type { MeetingPhase, Participant, PresenceParticipant } from "@/lib/retro/types";
 import { phaseLabel } from "@/lib/retro/types";
 import { ParticipantAvatars } from "@/components/retro/ParticipantAvatars";
 import { SplitText } from "@/components/retro/SplitText";
+import { useTherapyDiscussMode } from "@/components/retro/useTherapyDiscussMode";
 
 type PhaseHeaderProps = {
   phase: MeetingPhase;
+  roomCreatedAt: string;
   participants: Participant[];
   onlineParticipants: PresenceParticipant[];
 };
@@ -16,16 +20,19 @@ const SUBTITLES: Record<MeetingPhase, string> = {
   discuss: "Discuss the highest signal themes and leave with action items."
 };
 
-export function PhaseHeader({ phase, participants, onlineParticipants }: PhaseHeaderProps) {
+export function PhaseHeader({ phase, roomCreatedAt, participants, onlineParticipants }: PhaseHeaderProps) {
+  const therapyDiscuss = useTherapyDiscussMode(phase, roomCreatedAt);
+  const phaseTitle = therapyDiscuss ? "Therapy session" : phaseLabel(phase);
+
   return (
-    <header className="flex items-start justify-between gap-6 pb-5 pt-7">
-      <div>
+    <header className="flex flex-col gap-5 pb-5 pt-2 sm:flex-row sm:items-start sm:justify-between sm:gap-8 sm:pb-6 sm:pt-4 md:pt-2">
+      <div className="min-w-0 flex-1 pr-2">
         <div className="block">
           <SplitText
-            key={`phase-title-${phase}`}
+            key={`phase-title-${phase}-${therapyDiscuss ? "therapy" : "normal"}`}
             tag="h2"
-            text={phaseLabel(phase)}
-            className="text-4xl font-bold tracking-[-0.05em] text-slate-950"
+            text={phaseTitle}
+            className="text-3xl font-bold tracking-[-0.05em] text-slate-950 sm:text-4xl lg:text-[2.75rem] lg:leading-[1.05]"
             delay={95}
             duration={1.35}
             splitType="chars"
@@ -40,7 +47,7 @@ export function PhaseHeader({ phase, participants, onlineParticipants }: PhaseHe
           <SplitText
             key={`phase-subtitle-${phase}`}
             text={SUBTITLES[phase]}
-            className="text-base font-medium text-slate-500"
+            className="text-base font-medium leading-relaxed text-slate-500 sm:text-lg"
             delay={140}
             duration={1}
             splitType="words"
@@ -52,7 +59,9 @@ export function PhaseHeader({ phase, participants, onlineParticipants }: PhaseHe
           />
         </div>
       </div>
-      <ParticipantAvatars participants={participants} onlineParticipants={onlineParticipants} />
+      <div className="shrink-0 sm:self-start">
+        <ParticipantAvatars participants={participants} onlineParticipants={onlineParticipants} />
+      </div>
     </header>
   );
 }

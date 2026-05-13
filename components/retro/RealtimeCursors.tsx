@@ -2,15 +2,20 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { MousePointer2 } from "lucide-react";
+import { REALTIME_SUBSCRIBE_STATES } from "@supabase/supabase-js";
 import type { Participant, PresenceParticipant, Room } from "@/lib/retro/types";
 import { supabase } from "@/lib/supabase/client";
 
-type CursorPayload = {
+/** Sent on the wire (keep small; no lastSeen — receiver stamps locally). */
+type CursorWirePayload = {
   participantId: string;
   name: string;
   color: string;
   x: number;
   y: number;
+};
+
+type CursorDisplay = CursorWirePayload & {
   lastSeen: number;
 };
 
@@ -19,39 +24,117 @@ type RealtimeCursorsProps = {
   participant: Participant;
   onlineParticipants: PresenceParticipant[];
   containerRef: RefObject<HTMLElement | null>;
+  liveCursorsEnabled: boolean;
 };
 
-const CURSOR_THROTTLE_MS = 75;
+const CURSOR_THROTTLE_MS = 85;
 const CURSOR_STALE_MS = 4000;
+const MAX_NAME_LEN = 48;
+const MAX_COLOR_LEN = 32;
 
-export function RealtimeCursors({ room, participant, onlineParticipants, containerRef }: RealtimeCursorsProps) {
-  const [cursors, setCursors] = useState<Record<string, CursorPayload>>({});
+function sanitizeWirePayload(participantId: string, name: string, color: string, x: number, y: number): CursorWirePayload {
+  return {
+    participantId,
+    name: name.slice(0, MAX_NAME_LEN),
+    color: color.slice(0, MAX_COLOR_LEN),
+    x,
+    y
+  };
+}
+
+function isValidIncomingCursor(payload: unknown, selfId: string): payload is CursorWirePayload {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+  const p = payload as Record<string, unknown>;
+  const id = p.participantId;
+  if (typeof id !== "string" || !id || id === selfId) {
+    return false;
+  }
+  if (typeof p.name !== "string" || typeof p.color !== "string") {
+    return false;
+  }
+  const x = p.x;
+  const y = p.y;
+  if (typeof x !== "number" || typeof y !== "number" || !Number.isFinite(x) || !Number.isFinite(y)) {
+    return false;
+  }
+  return true;
+}
+
+export function RealtimeCursors({ room, participant, onlineParticipants, containerRef, liveCursorsEnabled }: RealtimeCursorsProps) {
+  const [cursors, setCursors] = useState<Record<string, CursorDisplay>>({});
   const lastSentAtRef = useRef(0);
-  const latestPayloadRef = useRef<CursorPayload | null>(null);
+  const latestPayloadRef = useRef<CursorWirePayload | null>(null);
   const pendingSendRef = useRef<number | null>(null);
+  const sendFailureCountRef = useRef(0);
 
   useEffect(() => {
-    if (!supabase || !room.id || !participant.id) {
+    if (!liveCursorsEnabled) {
+      setCursors({});
+      return;
+    }
+
+    if (!supabase) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[RealtimeCursors] Supabase client missing — check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      }
+      return;
+    }
+
+    const roomId = room.id;
+    const participantId = participant.id;
+    if (!roomId || !participantId) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[RealtimeCursors] Missing room.id or participant.id; skipping subscribe.");
+      }
       return;
     }
 
     const client = supabase;
-    const channel = client.channel(`retro-room-${room.id}-cursors`, {
-      config: { broadcast: { ack: false, self: false } }
-    });
-    let subscribed = false;
+    const topic = `room-${roomId}-cursors`;
+    const channel = client.channel(topic);
+    let cleanedUp = false;
+    let isSubscribed = false;
+    let removePointerListeners: (() => void) | null = null;
+    let pointerListenersAttached = false;
 
-    function sendPayload(payload: CursorPayload) {
-      if (!subscribed) {
+    const displayName = String(participant.name || "Guest");
+    const displayColor = String(participant.avatar_color || "#6d668f");
+
+    async function sendOrLog(args: { event: string; payload: Record<string, unknown> }) {
+      if (!isSubscribed || cleanedUp) {
+        return;
+      }
+      try {
+        const result = await channel.send({
+          type: "broadcast",
+          event: args.event,
+          payload: args.payload
+        });
+        if (result !== "ok") {
+          sendFailureCountRef.current += 1;
+          if (sendFailureCountRef.current <= 3) {
+            console.warn("[RealtimeCursors] broadcast send returned non-ok:", result, { topic, event: args.event });
+          }
+        } else {
+          sendFailureCountRef.current = 0;
+        }
+      } catch (error) {
+        sendFailureCountRef.current += 1;
+        if (sendFailureCountRef.current <= 3) {
+          console.warn("[RealtimeCursors] broadcast send threw:", error, { topic, event: args.event });
+        }
+      }
+    }
+
+    function sendPayload(payload: CursorWirePayload) {
+      if (!isSubscribed || cleanedUp) {
         return;
       }
 
       lastSentAtRef.current = Date.now();
-      void channel.send({
-        type: "broadcast",
-        event: "cursor",
-        payload
-      });
+      void sendOrLog({ event: "cursor", payload });
     }
 
     function flushPendingPayload() {
@@ -61,7 +144,7 @@ export function RealtimeCursors({ room, participant, onlineParticipants, contain
       }
     }
 
-    function schedulePayload(payload: CursorPayload) {
+    function schedulePayload(payload: CursorWirePayload) {
       latestPayloadRef.current = payload;
       const elapsed = Date.now() - lastSentAtRef.current;
 
@@ -80,103 +163,174 @@ export function RealtimeCursors({ room, participant, onlineParticipants, contain
     }
 
     function broadcastLeave() {
-      if (!subscribed) {
-        return;
-      }
-
-      void channel.send({
-        type: "broadcast",
-        event: "cursor_leave",
-        payload: { participantId: participant.id }
-      });
+      void sendOrLog({ event: "cursor_leave", payload: { participantId } });
     }
 
-    function handlePointerMove(event: PointerEvent) {
+    function attachPointerListeners() {
+      if (pointerListenersAttached || cleanedUp) {
+        return;
+      }
       const container = containerRef.current;
       if (!container) {
         return;
       }
+      pointerListenersAttached = true;
 
-      const rect = container.getBoundingClientRect();
-      const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
-      const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+      function handlePointerMove(event: PointerEvent) {
+        const el = containerRef.current;
+        if (!el || cleanedUp || !isSubscribed) {
+          return;
+        }
 
-      schedulePayload({
-        participantId: participant.id,
-        name: participant.name,
-        color: participant.avatar_color,
-        x,
-        y,
-        lastSeen: Date.now()
-      });
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+          return;
+        }
+
+        const rawX = event.clientX - rect.left;
+        const rawY = event.clientY - rect.top;
+        const x = Math.round(Math.max(0, Math.min(rect.width, rawX)));
+        const y = Math.round(Math.max(0, Math.min(rect.height, rawY)));
+
+        schedulePayload(sanitizeWirePayload(participantId, displayName, displayColor, x, y));
+      }
+
+      function handlePointerLeave() {
+        broadcastLeave();
+      }
+
+      container.addEventListener("pointermove", handlePointerMove);
+      container.addEventListener("pointerleave", handlePointerLeave);
+      removePointerListeners = () => {
+        container.removeEventListener("pointermove", handlePointerMove);
+        container.removeEventListener("pointerleave", handlePointerLeave);
+      };
     }
-
-    const container = containerRef.current;
-    container?.addEventListener("pointermove", handlePointerMove);
-    container?.addEventListener("pointerleave", broadcastLeave);
 
     channel
       .on("broadcast", { event: "cursor" }, ({ payload }) => {
-        const cursor = payload as CursorPayload;
-        if (!cursor?.participantId || cursor.participantId === participant.id) {
+        if (!isValidIncomingCursor(payload, participantId)) {
           return;
         }
-
+        const wire = payload as CursorWirePayload;
+        const now = Date.now();
         setCursors((current) => ({
           ...current,
-          [cursor.participantId]: cursor
+          [wire.participantId]: { ...wire, lastSeen: now }
         }));
       })
       .on("broadcast", { event: "cursor_leave" }, ({ payload }) => {
-        const participantId = (payload as { participantId?: string })?.participantId;
-        if (!participantId) {
+        const leaveId = (payload as { participantId?: string })?.participantId;
+        if (!leaveId) {
           return;
         }
-
         setCursors((current) => {
           const next = { ...current };
-          delete next[participantId];
+          delete next[leaveId];
           return next;
         });
       })
-      .subscribe((status) => {
-        subscribed = status === "SUBSCRIBED";
+      .subscribe((status, err) => {
+        if (cleanedUp) {
+          return;
+        }
+
+        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
+          isSubscribed = true;
+          lastSentAtRef.current = 0;
+
+          let attachAttempts = 0;
+          const maxAttachAttempts = 150;
+          function scheduleAttach() {
+            if (cleanedUp) {
+              return;
+            }
+            if (containerRef.current) {
+              attachPointerListeners();
+              return;
+            }
+            attachAttempts += 1;
+            if (attachAttempts > maxAttachAttempts) {
+              if (process.env.NODE_ENV === "development") {
+                console.warn("[RealtimeCursors] container ref not ready — pointer listeners not attached.", { topic });
+              }
+              return;
+            }
+            window.requestAnimationFrame(scheduleAttach);
+          }
+          scheduleAttach();
+          return;
+        }
+
+        if (status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR) {
+          console.warn("[RealtimeCursors] channel subscribe error:", err ?? "(no error object)", { topic });
+          isSubscribed = false;
+          return;
+        }
+
+        if (status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT) {
+          console.warn("[RealtimeCursors] channel subscribe timed out", { topic });
+          isSubscribed = false;
+          return;
+        }
+
+        if (status === REALTIME_SUBSCRIBE_STATES.CLOSED) {
+          isSubscribed = false;
+        }
       });
 
     const staleInterval = window.setInterval(() => {
       const now = Date.now();
       setCursors((current) => {
-        const next = Object.fromEntries(Object.entries(current).filter(([, cursor]) => now - cursor.lastSeen < CURSOR_STALE_MS));
+        const next = Object.fromEntries(
+          Object.entries(current).filter(([, cursor]) => now - cursor.lastSeen < CURSOR_STALE_MS)
+        );
         return Object.keys(next).length === Object.keys(current).length ? current : next;
       });
     }, 1000);
 
     return () => {
+      if (isSubscribed) {
+        void channel.send({
+          type: "broadcast",
+          event: "cursor_leave",
+          payload: { participantId }
+        });
+      }
+
+      cleanedUp = true;
+      isSubscribed = false;
+
       if (pendingSendRef.current) {
         window.clearTimeout(pendingSendRef.current);
         pendingSendRef.current = null;
       }
 
-      broadcastLeave();
+      removePointerListeners?.();
+      removePointerListeners = null;
+
       window.clearInterval(staleInterval);
-      container?.removeEventListener("pointermove", handlePointerMove);
-      container?.removeEventListener("pointerleave", broadcastLeave);
       void client.removeChannel(channel);
       setCursors({});
     };
-  }, [containerRef, participant.avatar_color, participant.id, participant.name, room.id]);
+  }, [containerRef, liveCursorsEnabled, participant.avatar_color, participant.id, participant.name, room.id]);
 
   useEffect(() => {
+    if (!liveCursorsEnabled) {
+      return;
+    }
     const onlineIds = new Set(onlineParticipants.map((onlineParticipant) => onlineParticipant.participant_id));
     setCursors((current) => {
-      const next = Object.fromEntries(Object.entries(current).filter(([participantId]) => onlineIds.has(participantId)));
+      const next = Object.fromEntries(Object.entries(current).filter(([pid]) => onlineIds.has(pid)));
       return Object.keys(next).length === Object.keys(current).length ? current : next;
     });
-  }, [onlineParticipants]);
+  }, [liveCursorsEnabled, onlineParticipants]);
+
+  const visibleCursors = liveCursorsEnabled ? cursors : {};
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[80] overflow-hidden">
-      {Object.values(cursors).map((cursor) => (
+    <div className="pointer-events-none absolute inset-0 z-[80] overflow-hidden" aria-hidden={!liveCursorsEnabled}>
+      {Object.values(visibleCursors).map((cursor) => (
         <div
           key={cursor.participantId}
           className="absolute left-0 top-0 transition-transform duration-100 ease-out"

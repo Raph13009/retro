@@ -33,8 +33,8 @@ export function CommentDrawer({ card, comments, participants, onClose, onAddComm
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-slate-950/30 backdrop-blur-md">
-      <aside className="liquid-panel h-full w-full max-w-md overflow-y-auto border-l border-[#ded8e8] p-5 shadow-2xl">
+    <div className="fixed inset-0 z-40 flex justify-end bg-slate-950/30 p-0 backdrop-blur-md sm:p-2">
+      <aside className="liquid-panel flex h-full max-h-full w-full max-w-md flex-col overflow-y-auto border-l border-[#ded8e8] p-4 shadow-2xl sm:max-h-[calc(100dvh-1rem)] sm:rounded-l-[1.5rem] sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Comments</p>

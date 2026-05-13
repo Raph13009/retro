@@ -130,6 +130,10 @@ export function getVoteLimit(room: Room) {
   return room.vote_limit_per_participant ?? room.vote_limit ?? 3;
 }
 
+export function normalizeRoomRow(data: Record<string, unknown>): Room {
+  return data as unknown as Room;
+}
+
 export function normalizePhase(phase: RetroPhase): MeetingPhase {
   if (phase === "writing") {
     return "reflect";
