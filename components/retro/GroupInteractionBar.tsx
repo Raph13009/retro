@@ -215,7 +215,8 @@ export function VoteReactionInteractionBar({
             {hiddenChips.map((chip) => (
               <ReactionChipButton key={chip.emoji} chip={chip} onToggle={() => toggleReaction(chip.emoji)} />
             ))}
-          </div>
+          </div>,
+          document.body
         )
       : null;
 
