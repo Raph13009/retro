@@ -57,6 +57,7 @@ create table if not exists public.card_groups (
   column_id uuid not null references public.columns(id) on delete cascade,
   title text not null,
   position integer not null default 0,
+  vote_count integer not null default 0 check (vote_count >= 0),
   created_by text,
   created_at timestamptz not null default now()
 );
@@ -96,11 +97,19 @@ $$;
 create table if not exists public.votes (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.rooms(id) on delete cascade,
-  card_id uuid not null references public.cards(id) on delete cascade,
+  card_id uuid references public.cards(id) on delete cascade,
+  group_id uuid references public.card_groups(id) on delete cascade,
   participant_id uuid not null references public.participants(id) on delete cascade,
   created_at timestamptz not null default now(),
-  unique (room_id, card_id, participant_id)
+  constraint votes_target_xor check (
+    (card_id is not null and group_id is null) or (card_id is null and group_id is not null)
+  )
 );
+
+create unique index if not exists votes_room_card_participant_uidx on public.votes (room_id, card_id, participant_id)
+  where card_id is not null;
+create unique index if not exists votes_room_group_participant_uidx on public.votes (room_id, group_id, participant_id)
+  where group_id is not null;
 
 create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
@@ -115,17 +124,26 @@ create table if not exists public.comments (
 create table if not exists public.reactions (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.rooms(id) on delete cascade,
-  card_id uuid not null references public.cards(id) on delete cascade,
+  card_id uuid references public.cards(id) on delete cascade,
+  group_id uuid references public.card_groups(id) on delete cascade,
   participant_id uuid not null references public.participants(id) on delete cascade,
   emoji text not null check (emoji in ('👍', '❤️', '😂', '👀', '🔥', '✅', '🤔')),
   created_at timestamptz not null default now(),
-  unique (room_id, card_id, participant_id, emoji)
+  constraint reactions_target_xor check (
+    (card_id is not null and group_id is null) or (card_id is null and group_id is not null)
+  )
 );
+
+create unique index if not exists reactions_room_card_participant_emoji_uidx on public.reactions (room_id, card_id, participant_id, emoji)
+  where card_id is not null;
+create unique index if not exists reactions_room_group_participant_emoji_uidx on public.reactions (room_id, group_id, participant_id, emoji)
+  where group_id is not null;
 
 create table if not exists public.action_items (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.rooms(id) on delete cascade,
   card_id uuid references public.cards(id) on delete set null,
+  group_id uuid references public.card_groups(id) on delete set null,
   title text not null,
   assignee_participant_id uuid references public.participants(id) on delete set null,
   status text not null default 'todo' check (status in ('todo', 'done')),
@@ -133,8 +151,11 @@ create table if not exists public.action_items (
   position integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (card_id)
+  constraint action_items_target_xor check (not (card_id is not null and group_id is not null))
 );
+
+create unique index if not exists action_items_card_id_uidx on public.action_items (card_id) where card_id is not null;
+create unique index if not exists action_items_group_id_uidx on public.action_items (group_id) where group_id is not null;
 
 create table if not exists public.support_tickets (
   id uuid primary key default gen_random_uuid(),
@@ -195,15 +216,32 @@ language plpgsql
 as $$
 begin
   if tg_op = 'INSERT' then
-    update public.cards
-    set vote_count = vote_count + 1
-    where id = new.card_id;
+    if new.card_id is not null then
+      update public.cards set vote_count = vote_count + 1 where id = new.card_id;
+    end if;
     return new;
   end if;
+  if old.card_id is not null then
+    update public.cards set vote_count = greatest(0, vote_count - 1) where id = old.card_id;
+  end if;
+  return old;
+end;
+$$;
 
-  update public.cards
-  set vote_count = greatest(0, vote_count - 1)
-  where id = old.card_id;
+create or replace function public.sync_group_vote_count()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.group_id is not null then
+      update public.card_groups set vote_count = vote_count + 1 where id = new.group_id;
+    end if;
+    return new;
+  end if;
+  if old.group_id is not null then
+    update public.card_groups set vote_count = greatest(0, vote_count - 1) where id = old.group_id;
+  end if;
   return old;
 end;
 $$;
@@ -212,6 +250,11 @@ drop trigger if exists sync_card_vote_count on public.votes;
 create trigger sync_card_vote_count
 after insert or delete on public.votes
 for each row execute function public.sync_card_vote_count();
+
+drop trigger if exists sync_group_vote_count on public.votes;
+create trigger sync_group_vote_count
+after insert or delete on public.votes
+for each row execute function public.sync_group_vote_count();
 
 create or replace function public.enforce_vote_limit()
 returns trigger
@@ -298,6 +341,35 @@ begin
       foreign key (group_id) references public.card_groups(id)
       on delete set null;
   end if;
+
+  alter table public.card_groups add column if not exists vote_count integer not null default 0;
+
+  alter table public.votes drop constraint if exists votes_card_id_fkey;
+  alter table public.votes alter column card_id drop not null;
+  alter table public.votes add column if not exists group_id uuid references public.card_groups(id) on delete cascade;
+
+  alter table public.reactions drop constraint if exists reactions_card_id_fkey;
+  alter table public.reactions alter column card_id drop not null;
+  alter table public.reactions add column if not exists group_id uuid references public.card_groups(id) on delete cascade;
+
+  alter table public.votes drop constraint if exists votes_target_xor;
+  alter table public.votes add constraint votes_target_xor check (
+    (card_id is not null and group_id is null) or (card_id is null and group_id is not null)
+  );
+
+  alter table public.reactions drop constraint if exists reactions_target_xor;
+  alter table public.reactions add constraint reactions_target_xor check (
+    (card_id is not null and group_id is null) or (card_id is null and group_id is not null)
+  );
+
+  create unique index if not exists votes_room_card_participant_uidx on public.votes (room_id, card_id, participant_id)
+    where card_id is not null;
+  create unique index if not exists votes_room_group_participant_uidx on public.votes (room_id, group_id, participant_id)
+    where group_id is not null;
+  create unique index if not exists reactions_room_card_participant_emoji_uidx on public.reactions (room_id, card_id, participant_id, emoji)
+    where card_id is not null;
+  create unique index if not exists reactions_room_group_participant_emoji_uidx on public.reactions (room_id, group_id, participant_id, emoji)
+    where group_id is not null;
 end;
 $$;
 

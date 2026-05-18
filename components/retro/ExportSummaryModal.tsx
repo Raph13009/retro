@@ -36,6 +36,9 @@ export function ExportSummaryModal({
   const trollGroupIds = new Set(cardGroups.filter(isTrollGroup).map((group) => group.id));
   const orderedActionItems = [...actionItems]
     .filter((item) => {
+      if (item.group_id) {
+        return !trollGroupIds.has(item.group_id);
+      }
       const sourceCard = item.card_id ? cards.find((card) => card.id === item.card_id) : null;
       return !sourceCard?.group_id || !trollGroupIds.has(sourceCard.group_id);
     })
@@ -156,9 +159,19 @@ function ActionExportCard({
   reactions: Reaction[];
 }) {
   const sourceCard = item.card_id ? cards.find((card) => card.id === item.card_id) : null;
+  const sourceGroup = item.group_id ? cardGroups.find((group) => group.id === item.group_id) : null;
   const assignee = participants.find((participant) => participant.id === item.assignee_participant_id);
-  const reactionLabel = sourceCard ? formatReactions(reactions.filter((reaction) => reaction.card_id === sourceCard.id)) : "";
-  const sourceLabel = sourceCard ? sourceDescription(sourceCard, columns, cardGroups) : "No source card";
+  const reactionLabel = sourceGroup
+    ? formatReactions(reactions.filter((reaction) => reaction.group_id === sourceGroup.id))
+    : sourceCard
+      ? formatReactions(reactions.filter((reaction) => reaction.card_id === sourceCard.id))
+      : "";
+  const voteLabel = sourceGroup ? sourceGroup.vote_count : sourceCard?.vote_count;
+  const sourceLabel = sourceGroup
+    ? `Group: ${sourceGroup.title}`
+    : sourceCard
+      ? sourceDescription(sourceCard, columns, cardGroups)
+      : "No source";
 
   return (
     <article className="rounded-[1.4rem] border border-[#ded8e8] bg-white p-4 shadow-sm">
@@ -170,7 +183,7 @@ function ActionExportCard({
       </div>
       <dl className="mt-3 space-y-1.5 text-xs font-semibold text-slate-500">
         <div>Assignee: {assignee?.name ?? "Unassigned"}</div>
-        {sourceCard ? <div>Votes: {sourceCard.vote_count}</div> : null}
+        {voteLabel != null ? <div>Votes: {voteLabel}</div> : null}
         <div>Source: {sourceLabel}</div>
         {reactionLabel ? <div>Reactions: {reactionLabel}</div> : null}
         {item.notes ? <div>Notes: {item.notes}</div> : null}
@@ -211,13 +224,28 @@ function buildMarkdownSummary({
     actionItems.forEach((item, index) => {
       const assignee = participants.find((participant) => participant.id === item.assignee_participant_id);
       const sourceCard = item.card_id ? cards.find((card) => card.id === item.card_id) : null;
+      const sourceGroup = item.group_id ? cardGroups.find((group) => group.id === item.group_id) : null;
       const sourceComments = sourceCard ? comments.filter((comment) => comment.card_id === sourceCard.id) : [];
+      const voteCount = sourceGroup?.vote_count ?? sourceCard?.vote_count ?? 0;
+      const reactionSource = sourceGroup
+        ? reactions.filter((reaction) => reaction.group_id === sourceGroup.id)
+        : sourceCard
+          ? reactions.filter((reaction) => reaction.card_id === sourceCard.id)
+          : [];
       lines.push(`### ${index + 1}. ${item.title}`, "");
       lines.push(`- Assignee: ${assignee?.name ?? "Unassigned"}`);
       lines.push(`- Status: ${item.status === "done" ? "Done" : "Todo"}`);
-      lines.push(`- Votes: ${sourceCard?.vote_count ?? 0}`);
-      lines.push(`- Source: ${sourceCard ? sourceDescription(sourceCard, columns, cardGroups) : "No source card"}`);
-      lines.push(`- Reactions: ${sourceCard ? formatReactions(reactions.filter((reaction) => reaction.card_id === sourceCard.id)) || "None" : "None"}`);
+      lines.push(`- Votes: ${voteCount}`);
+      lines.push(
+        `- Source: ${
+          sourceGroup
+            ? `Group: ${sourceGroup.title}`
+            : sourceCard
+              ? sourceDescription(sourceCard, columns, cardGroups)
+              : "No source"
+        }`
+      );
+      lines.push(`- Reactions: ${formatReactions(reactionSource) || "None"}`);
       if (item.notes) {
         lines.push(`- Notes: ${item.notes.replace(/\n/g, " ")}`);
       }

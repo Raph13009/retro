@@ -14,7 +14,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { ActionItem, CardGroup, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
 import { ActionsColumn } from "@/components/retro/ActionsColumn";
-import { GhostReflection, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
+import { HiddenReflectionMeta, HiddenReflectionSkeleton, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
 import { GroupColumn } from "@/components/retro/GroupColumn";
 import { useSidebarUi } from "@/components/retro/SidebarUiContext";
 import { useBoardHorizontalScrollPeek } from "@/components/retro/useBoardHorizontalScrollPeek";
@@ -41,13 +41,36 @@ type GroupBoardProps = {
   onGroupCards: (card: RetroCard, targetCard: RetroCard) => void;
   onUngroupCard: (card: RetroCard) => void;
   onVoteCard: (card: RetroCard) => void;
+  onVoteGroup: (group: CardGroup) => void;
   onReact: (card: RetroCard, emoji: string) => void;
+  onReactGroup: (group: CardGroup, emoji: string) => void;
   onCreateActionItemFromCard: (card: RetroCard) => void;
+  onCreateActionItemFromGroup: (group: CardGroup) => void;
   onUpdateActionItem: (item: ActionItem, patch: Partial<ActionItem>) => void;
   onMoveCardToTroll: (card: RetroCard) => void;
+  onMoveGroupToTroll: (group: CardGroup) => void;
+  onMoveGroupToColumn: (group: CardGroup, columnId: string) => void;
 };
 
 const collisionDetection: CollisionDetection = (args) => {
+  const activeIdStr = String(args.active.id);
+  if (activeIdStr.startsWith("group-drag:")) {
+    const collisions = rectIntersection(args);
+    const actionsHit = collisions.find((collision) => String(collision.id) === "actions-column");
+    if (actionsHit) {
+      return [actionsHit];
+    }
+    const trollHit = collisions.find((collision) => String(collision.id) === TROLL_DROP_ID);
+    if (trollHit) {
+      return [trollHit];
+    }
+    const columnHit = collisions.find((collision) => String(collision.id).startsWith("column:"));
+    if (columnHit) {
+      return [columnHit];
+    }
+    return collisions;
+  }
+
   const collisions = pointerWithin(args);
   const candidates = collisions.length > 0 ? collisions : rectIntersection(args);
   const cardCollision = candidates.find((collision) => String(collision.id).startsWith("card-drop:"));
@@ -89,23 +112,33 @@ export function GroupBoard({
   onGroupCards,
   onUngroupCard,
   onVoteCard,
+  onVoteGroup,
   onReact,
+  onReactGroup,
   onCreateActionItemFromCard,
+  onCreateActionItemFromGroup,
   onUpdateActionItem,
-  onMoveCardToTroll
+  onMoveCardToTroll,
+  onMoveGroupToTroll,
+  onMoveGroupToColumn
 }: GroupBoardProps) {
   const { collapsed: sidebarCollapsed } = useSidebarUi();
   const { ref: boardScrollRef, thumbActive } = useBoardHorizontalScrollPeek();
-  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [activeDrag, setActiveDrag] = useState<{ kind: "card"; id: string } | { kind: "group"; id: string } | null>(null);
   const [trollPortal, setTrollPortal] = useState<HTMLElement | null>(null);
   const orderedColumns = [...columns].sort((first, second) => first.sort_order - second.sort_order);
   const trollGroup = groups.find(isTrollGroup);
   const trollCards = trollGroup ? cards.filter((card) => card.group_id === trollGroup.id) : [];
   const boardGroups = groups.filter((group) => !isTrollGroup(group));
   const boardCards = trollGroup ? cards.filter((card) => card.group_id !== trollGroup.id) : cards;
-  const activeCard = activeCardId ? cards.find((card) => card.id === activeCardId) : null;
+  const activeCard = activeDrag?.kind === "card" ? cards.find((card) => card.id === activeDrag.id) : null;
+  const activeGroup = activeDrag?.kind === "group" ? boardGroups.find((group) => group.id === activeDrag.id) : null;
   const activeParticipant = activeCard ? participants.find((participant) => participant.id === activeCard.author_participant_id) : undefined;
-  const maxVoteCount = boardCards.reduce((maxVotes, card) => Math.max(maxVotes, card.vote_count), 0);
+  const maxVoteCount = useMemo(() => {
+    const cardMax = boardCards.reduce((maxVotes, card) => Math.max(maxVotes, card.vote_count), 0);
+    const groupMax = boardGroups.reduce((maxVotes, group) => Math.max(maxVotes, group.vote_count), 0);
+    return Math.max(cardMax, groupMax);
+  }, [boardCards, boardGroups]);
 
   useEffect(() => {
     setTrollPortal(document.getElementById(TROLL_PORTAL_ID));
@@ -113,13 +146,52 @@ export function GroupBoard({
 
   function handleDragStart(event: DragStartEvent) {
     const activeId = String(event.active.id);
-    setActiveCardId(activeId.startsWith("card:") ? activeId.replace("card:", "") : null);
+    if (activeId.startsWith("group-drag:")) {
+      setActiveDrag({ kind: "group", id: activeId.replace("group-drag:", "") });
+      return;
+    }
+    if (activeId.startsWith("card:")) {
+      setActiveDrag({ kind: "card", id: activeId.replace("card:", "") });
+      return;
+    }
+    setActiveDrag(null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    setActiveCardId(null);
+    setActiveDrag(null);
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : "";
+
+    if (activeId.startsWith("group-drag:")) {
+      if (!overId) {
+        return;
+      }
+      const group = boardGroups.find((candidate) => candidate.id === activeId.replace("group-drag:", ""));
+      if (!group) {
+        return;
+      }
+
+      if (overId === TROLL_DROP_ID) {
+        if (phase === "discuss") {
+          onMoveGroupToTroll(group);
+        }
+        return;
+      }
+
+      if (overId === "actions-column") {
+        if (phase === "discuss") {
+          onCreateActionItemFromGroup(group);
+        }
+        return;
+      }
+
+      if (overId.startsWith("column:")) {
+        const columnId = overId.replace("column:", "");
+        onMoveGroupToColumn(group, columnId);
+      }
+      return;
+    }
+
     if (!activeId.startsWith("card:") || !overId) {
       return;
     }
@@ -178,7 +250,7 @@ export function GroupBoard({
   }
 
   function handleDragCancel() {
-    setActiveCardId(null);
+    setActiveDrag(null);
   }
 
   return (
@@ -212,11 +284,19 @@ export function GroupBoard({
             onDeleteGroup={onDeleteGroup}
             onUngroupCard={onUngroupCard}
             onVoteCard={onVoteCard}
+            onVoteGroup={onVoteGroup}
             onReact={onReact}
+            onReactGroup={onReactGroup}
           />
         ))}
         {phase === "discuss" ? (
-          <ActionsColumn actionItems={actionItems} cards={boardCards} participants={participants} onUpdateActionItem={onUpdateActionItem} />
+          <ActionsColumn
+            actionItems={actionItems}
+            cards={boardCards}
+            cardGroups={boardGroups}
+            participants={participants}
+            onUpdateActionItem={onUpdateActionItem}
+          />
         ) : null}
       </div>
       {phase === "discuss" && trollPortal
@@ -226,7 +306,10 @@ export function GroupBoard({
           )
         : null}
       <DragOverlay zIndex={9999} dropAnimation={null}>
-        {activeCard ? <CardDragOverlay card={activeCard} participant={activeParticipant} phase={phase} currentParticipantId={currentParticipantId} /> : null}
+        {activeCard ? (
+          <CardDragOverlay card={activeCard} participant={activeParticipant} phase={phase} currentParticipantId={currentParticipantId} />
+        ) : null}
+        {activeGroup ? <GroupDragOverlay group={activeGroup} cardCount={boardCards.filter((card) => card.group_id === activeGroup.id).length} /> : null}
       </DragOverlay>
     </DndContext>
     </div>
@@ -444,19 +527,42 @@ function CardDragOverlay({
         "shadow-[0_28px_80px_-38px_rgba(49,46,78,0.42)] ring-1 ring-[#ded8e8]/80"
       )}
     >
-      {hiddenReflection ? <GhostReflection /> : <p className="line-clamp-4 whitespace-pre-wrap text-sm font-semibold leading-5 text-slate-800">{card.content}</p>}
+      {hiddenReflection ? <HiddenReflectionSkeleton /> : <p className="line-clamp-4 whitespace-pre-wrap text-sm font-semibold leading-5 text-slate-800">{card.content}</p>}
       <div className="mt-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-          <span
-            className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
-            style={{ backgroundColor: hiddenReflection ? "#b9b2cf" : participant?.avatar_color ?? "#94a3b8" }}
-          >
-            {hiddenReflection ? "?" : (participant?.name ?? "?").slice(0, 1).toUpperCase()}
-          </span>
-          {hiddenReflection ? "Hidden while reflecting" : "Floating"}
-        </div>
+        {hiddenReflection ? (
+          <HiddenReflectionMeta />
+        ) : (
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+            <span
+              className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
+              style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
+            >
+              {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
+            </span>
+            Floating
+          </div>
+        )}
         <span className="rounded-full bg-[#ebe8f4] px-2 py-1 text-xs font-extrabold text-[#4f4974]">Drop to group</span>
       </div>
     </article>
+  );
+}
+
+function GroupDragOverlay({ group, cardCount }: { group: CardGroup; cardCount: number }) {
+  return (
+    <div
+      className={cn(
+        "retro-group-surface w-[min(340px,92vw)] rotate-[-0.5deg] rounded-[1.55rem] p-4 opacity-95",
+        "shadow-[0_28px_80px_-38px_rgba(49,46,78,0.42)] ring-1 ring-[#ded8e8]/80"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="truncate text-base font-bold text-slate-950">{group.title}</h3>
+        <span className="shrink-0 rounded-full border border-[#ded8e8] bg-white/64 px-2.5 py-1 text-xs font-extrabold text-[#4f4974]">
+          {cardCount} {cardCount === 1 ? "Card" : "Cards"}
+        </span>
+      </div>
+      <p className="mt-3 text-xs font-bold text-[#625b84]">Topic group — drop on Actions, Troll, or a column</p>
+    </div>
   );
 }

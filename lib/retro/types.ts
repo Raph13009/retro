@@ -48,6 +48,7 @@ export type CardGroup = {
   position: number;
   created_by: string | null;
   created_at: string;
+  vote_count: number;
 };
 
 export type RetroCard = {
@@ -67,7 +68,8 @@ export type RetroCard = {
 export type Vote = {
   id: string;
   room_id: string;
-  card_id: string;
+  card_id: string | null;
+  group_id: string | null;
   participant_id: string;
   created_at: string;
 };
@@ -85,7 +87,8 @@ export type CardComment = {
 export type Reaction = {
   id: string;
   room_id: string;
-  card_id: string;
+  card_id: string | null;
+  group_id: string | null;
   participant_id: string;
   emoji: string;
   created_at: string;
@@ -95,6 +98,7 @@ export type ActionItem = {
   id: string;
   room_id: string;
   card_id: string | null;
+  group_id: string | null;
   title: string;
   assignee_participant_id: string | null;
   status: ActionStatus;

@@ -1,17 +1,18 @@
 import { useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Check, ClipboardCheck } from "lucide-react";
-import type { ActionItem, Participant, RetroCard } from "@/lib/retro/types";
+import type { ActionItem, CardGroup, Participant, RetroCard } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
 type ActionsColumnProps = {
   actionItems: ActionItem[];
   cards: RetroCard[];
+  cardGroups: CardGroup[];
   participants: Participant[];
   onUpdateActionItem: (item: ActionItem, patch: Partial<ActionItem>) => void;
 };
 
-export function ActionsColumn({ actionItems, cards, participants, onUpdateActionItem }: ActionsColumnProps) {
+export function ActionsColumn({ actionItems, cards, cardGroups, participants, onUpdateActionItem }: ActionsColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: "actions-column" });
   const orderedItems = useMemo(() => [...actionItems].sort((first, second) => first.position - second.position || first.created_at.localeCompare(second.created_at)), [actionItems]);
 
@@ -48,8 +49,9 @@ export function ActionsColumn({ actionItems, cards, participants, onUpdateAction
             <ActionCard
               key={item.id}
               item={item}
-              sourceCard={cards.find((card) => card.id === item.card_id)}
-              assignee={participants.find((participant) => participant.id === item.assignee_participant_id)}
+              sourceCard={item.card_id ? cards.find((card) => card.id === item.card_id) : undefined}
+              sourceGroup={item.group_id ? cardGroups.find((group) => group.id === item.group_id) : undefined}
+              groupCards={item.group_id ? cards.filter((card) => card.group_id === item.group_id) : []}
               participants={participants}
               onUpdateActionItem={onUpdateActionItem}
             />
@@ -63,16 +65,29 @@ export function ActionsColumn({ actionItems, cards, participants, onUpdateAction
 function ActionCard({
   item,
   sourceCard,
-  assignee,
+  sourceGroup,
+  groupCards,
   participants,
   onUpdateActionItem
 }: {
   item: ActionItem;
   sourceCard?: RetroCard;
-  assignee?: Participant;
+  sourceGroup?: CardGroup;
+  groupCards: RetroCard[];
   participants: Participant[];
   onUpdateActionItem: (item: ActionItem, patch: Partial<ActionItem>) => void;
 }) {
+  const groupSummary =
+    sourceGroup && groupCards.length > 0 ? (
+      <ul className="mt-2 list-inside list-disc space-y-1 text-xs font-semibold text-slate-500">
+        {groupCards.map((card) => (
+          <li key={card.id} className="line-clamp-2">
+            {card.content}
+          </li>
+        ))}
+      </ul>
+    ) : null;
+
   return (
     <article className="retro-card-surface rounded-[1.4rem] p-3">
       <div className="flex items-start justify-between gap-3">
@@ -100,7 +115,11 @@ function ActionCard({
         </button>
       </div>
 
-      {sourceCard ? <p className="mt-2 line-clamp-2 text-xs font-semibold text-slate-400">From: {sourceCard.content}</p> : null}
+      {sourceGroup ? (
+        <p className="mt-2 text-xs font-extrabold text-[#557b5e]">Group topic · {groupCards.length} card{groupCards.length === 1 ? "" : "s"}</p>
+      ) : null}
+      {sourceCard ? <p className="mt-2 line-clamp-2 text-xs font-semibold text-slate-400">From card: {sourceCard.content}</p> : null}
+      {groupSummary}
 
       <select
         value={item.assignee_participant_id ?? ""}
@@ -114,15 +133,6 @@ function ActionCard({
           </option>
         ))}
       </select>
-
-      {assignee ? (
-        <div className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-500">
-          <span className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white" style={{ backgroundColor: assignee.avatar_color }}>
-            {assignee.name.slice(0, 1).toUpperCase()}
-          </span>
-          {assignee.name}
-        </div>
-      ) : null}
 
       <textarea
         defaultValue={item.notes ?? ""}

@@ -2,9 +2,9 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { CheckSquare, GripVertical, MessageCircle, Pencil, Trash2 } from "lucide-react";
 import type { ActionItem, CardComment, Participant, Reaction, RetroCard as RetroCardType, Room, Vote } from "@/lib/retro/types";
-import { getVoteLimit, SUGGESTED_EMOJIS } from "@/lib/retro/types";
+import { getVoteLimit, normalizePhase } from "@/lib/retro/types";
+import { CardInteractionBar } from "@/components/retro/GroupInteractionBar";
 import { cn } from "@/lib/utils";
-import { useSelfFireTooltip } from "@/components/retro/useSelfFireTooltip";
 
 type RetroCardProps = {
   card: RetroCardType;
@@ -41,18 +41,7 @@ export function RetroCard({
 }: RetroCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
   const isAuthor = card.author_participant_id === participant.id;
-  const participantVote = votes.find((vote) => vote.card_id === card.id && vote.participant_id === participant.id);
-  const usedVotes = votes.filter((vote) => vote.participant_id === participant.id).length;
-  const canVote = Boolean(participantVote) || usedVotes < getVoteLimit(room);
-  const groupedReactions = SUGGESTED_EMOJIS.map((emoji) => ({
-    emoji,
-    count: reactions.filter((reaction) => reaction.card_id === card.id && reaction.emoji === emoji).length,
-    active: reactions.some(
-      (reaction) => reaction.card_id === card.id && reaction.emoji === emoji && reaction.participant_id === participant.id
-    )
-  }));
-
-  const { fireRef, tooltip: selfFireTooltip } = useSelfFireTooltip(card.id);
+  const phase = normalizePhase(room.current_phase);
 
   return (
     <article
@@ -89,18 +78,6 @@ export function RetroCard({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onVote(card)}
-          disabled={!canVote}
-          className={cn(
-            "rounded-full px-2.5 py-1 text-xs font-medium transition",
-            participantVote ? "bg-[#343052] text-white" : "bg-slate-100 text-slate-600 hover:bg-[#f1eef6]",
-            !canVote && "opacity-50"
-          )}
-        >
-          +1 {card.vote_count}
-        </button>
         <button
           type="button"
           onClick={() => onOpenComments(card)}
@@ -140,25 +117,16 @@ export function RetroCard({
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {groupedReactions.map((reaction) => (
-          <button
-            key={reaction.emoji}
-            ref={reaction.emoji === "🔥" ? fireRef : undefined}
-            type="button"
-            onClick={() => onReact(card, reaction.emoji)}
-            className={cn(
-              "rounded-full border px-2 py-1 text-xs transition",
-              reaction.active
-                ? "border-[#343052] bg-[#343052] text-white"
-                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-            )}
-          >
-            {reaction.emoji} {reaction.count > 0 ? reaction.count : ""}
-          </button>
-        ))}
-      </div>
-      {selfFireTooltip}
+      <CardInteractionBar
+        card={card}
+        phase={phase}
+        votes={votes}
+        reactions={reactions}
+        currentParticipantId={participant.id}
+        voteLimit={getVoteLimit(room)}
+        onVoteCard={onVote}
+        onReact={onReact}
+      />
     </article>
   );
 }

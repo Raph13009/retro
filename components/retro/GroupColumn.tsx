@@ -3,7 +3,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, Ungroup } from "lucide-react";
 import { CardVotingControls } from "@/components/retro/CardVotingControls";
 import { CardGroup } from "@/components/retro/CardGroup";
-import { GhostReflection, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
+import { HiddenReflectionMeta, HiddenReflectionSkeleton, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
 import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +24,9 @@ type GroupColumnProps = {
   onDeleteGroup: (group: CardGroupType) => void;
   onUngroupCard: (card: RetroCard) => void;
   onVoteCard: (card: RetroCard) => void;
+  onVoteGroup: (group: CardGroupType) => void;
   onReact: (card: RetroCard, emoji: string) => void;
+  onReactGroup: (group: CardGroupType, emoji: string) => void;
 };
 
 const DOT_COLORS = ["bg-rose-300", "bg-amber-300", "bg-emerald-300", "bg-teal-300", "bg-indigo-300"];
@@ -46,7 +48,9 @@ export function GroupColumn({
   onDeleteGroup,
   onUngroupCard,
   onVoteCard,
-  onReact
+  onVoteGroup,
+  onReact,
+  onReactGroup
 }: GroupColumnProps) {
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -132,8 +136,8 @@ export function GroupColumn({
               onRenameGroup={onRenameGroup}
               onDeleteGroup={onDeleteGroup}
               onUngroupCard={onUngroupCard}
-              onVoteCard={onVoteCard}
-              onReact={onReact}
+              onVoteGroup={onVoteGroup}
+              onReactGroup={onReactGroup}
             />
           ))}
 
@@ -211,23 +215,28 @@ function UngroupedCard({
       {...attributes}
       {...listeners}
     >
-      {hiddenReflection ? <GhostReflection /> : <p className="whitespace-pre-wrap text-sm font-medium leading-5 text-slate-800">{card.content}</p>}
+      {hiddenReflection ? <HiddenReflectionSkeleton /> : <p className="whitespace-pre-wrap text-sm font-medium leading-5 text-slate-800">{card.content}</p>}
       <div className="mt-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-          <span
-            className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
-            style={{ backgroundColor: hiddenReflection ? "#b9b2cf" : participant?.avatar_color ?? "#94a3b8" }}
-          >
-            {hiddenReflection ? "?" : (participant?.name ?? "?").slice(0, 1).toUpperCase()}
-          </span>
-          {hiddenReflection ? "Someone is reflecting" : `${card.vote_count} votes`}
-        </div>
+        {hiddenReflection ? (
+          <HiddenReflectionMeta />
+        ) : (
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+            <span
+              className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
+              style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
+              aria-label={participant?.name ?? "Unknown author"}
+            >
+              {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
+            </span>
+          </div>
+        )}
         {phase !== "vote" ? (
           <Ungroup className="h-3.5 w-3.5 text-slate-300" />
         ) : null}
       </div>
       {!hiddenReflection ? (
         <CardVotingControls
+          variant="card"
           card={card}
           phase={phase}
           votes={votes}

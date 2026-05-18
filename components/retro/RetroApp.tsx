@@ -15,7 +15,6 @@ import { RenameGroupModal } from "@/components/retro/RenameGroupModal";
 import { RetroLayout } from "@/components/retro/RetroLayout";
 import { RoomLoadingSkeleton } from "@/components/retro/RetroSkeletons";
 import { SupportModal } from "@/components/retro/SupportModal";
-import { dispatchSelfFireTooltip } from "@/components/retro/useSelfFireTooltip";
 import { avatarColorForName, getStoredParticipant, storeParticipant } from "@/lib/retro/local-participant";
 import { clearFacilitatorClaim, hasFacilitatorClaimForRoom } from "@/lib/retro/facilitator-claim";
 import { getRemainingSeconds, timerEnded } from "@/lib/retro/timer";
@@ -34,6 +33,13 @@ import type {
   Vote
 } from "@/lib/retro/types";
 import { getVoteLimit, normalizePhase, normalizeRoomRow } from "@/lib/retro/types";
+import {
+  isStrayGroupedCardVote,
+  reactionTargetsCard,
+  reactionTargetsGroup,
+  voteTargetsCard,
+  voteTargetsGroup
+} from "@/lib/retro/vote-reaction-target";
 import { readLiveCursorsEnabled, writeLiveCursorsEnabled } from "@/lib/retro/live-cursors-preference";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 
@@ -111,8 +117,6 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const operationErrorTimeoutRef = useRef<number | null>(null);
   const oneMinuteNoticeKeyRef = useRef<string | null>(null);
   const [retroNoticeBanner, setRetroNoticeBanner] = useState({ visible: false, message: "" });
-  const selfFireLastGlobalRef = useRef(0);
-  const selfFireLastByCardRef = useRef<Record<string, number>>({});
   const [cursorModeHint, setCursorModeHint] = useState("");
   const cursorHintTimeoutRef = useRef<number | null>(null);
   const [liveCursorsLocalEnabled, setLiveCursorsLocalEnabled] = useState(() => readLiveCursorsEnabled(roomSlug));
@@ -172,7 +176,15 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }
     setParticipants((participantsResult.data ?? []) as Participant[]);
     setColumns((columnsResult.data ?? []) as RetroColumn[]);
-    setCardGroups((cardGroupsResult.data ?? []) as CardGroup[]);
+    setCardGroups(
+      (cardGroupsResult.data ?? []).map((row) => {
+        const group = row as Record<string, unknown>;
+        return {
+          ...group,
+          vote_count: Number(group.vote_count ?? 0)
+        } as CardGroup;
+      })
+    );
     setCards((cardsResult.data ?? []) as RetroCard[]);
     setVotes((votesResult.data ?? []) as Vote[]);
     setComments((commentsResult.data ?? []) as CardComment[]);
@@ -181,16 +193,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }, []);
 
   const performMutation = useCallback(
-    async (action: () => Promise<void>, fallbackMessage: string) => {
+    async (action: () => Promise<void>, fallbackMessage: string, options?: { reload?: boolean }) => {
       const roomId = room?.id;
       if (!roomId) {
         return false;
       }
 
+      const reload = options?.reload !== false;
+
       try {
         setOperationError("");
         await action();
-        await loadSnapshot(roomId);
+        if (reload) {
+          await loadSnapshot(roomId);
+        }
         return true;
       } catch (caughtError) {
         const message = caughtError instanceof Error ? caughtError.message : fallbackMessage;
@@ -338,8 +354,24 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       .on("postgres_changes", { event: "*", schema: "public", table: "columns", filter: `room_id=eq.${room.id}` }, () => {
         void loadSnapshot(room.id);
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "card_groups", filter: `room_id=eq.${room.id}` }, () => {
-        void loadSnapshot(room.id);
+      .on("postgres_changes", { event: "*", schema: "public", table: "card_groups", filter: `room_id=eq.${room.id}` }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const deletedGroup = payload.old as Pick<CardGroup, "id">;
+          setCardGroups((currentGroups) => currentGroups.filter((group) => group.id !== deletedGroup.id));
+          return;
+        }
+
+        const nextGroup = payload.new as CardGroup;
+        const normalized: CardGroup = {
+          ...nextGroup,
+          vote_count: Number(nextGroup.vote_count ?? 0)
+        };
+        setCardGroups((currentGroups) => {
+          const exists = currentGroups.some((group) => group.id === normalized.id);
+          return exists
+            ? currentGroups.map((group) => (group.id === normalized.id ? normalized : group))
+            : [...currentGroups, normalized];
+        });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "cards", filter: `room_id=eq.${room.id}` }, (payload) => {
         if (payload.eventType === "DELETE") {
@@ -871,7 +903,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       title: groupTitle,
       position,
       created_by: participant.name,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      vote_count: 0
     };
     const previousGroups = cardGroups;
     const previousCards = cards;
@@ -892,7 +925,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         column_id: columnId,
         title: optimisticGroup.title,
         position,
-        created_by: participant.name
+        created_by: participant.name,
+        vote_count: 0
       });
 
       if (insertError) {
@@ -942,7 +976,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       title: groupTitle,
       position: basePosition,
       created_by: participant.name,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      vote_count: 0
     };
     const previousGroups = cardGroups;
     const previousCards = cards;
@@ -969,7 +1004,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         column_id: targetColumnId,
         title: optimisticGroup.title,
         position: basePosition,
-        created_by: participant.name
+        created_by: participant.name,
+        vote_count: 0
       });
 
       if (insertError) {
@@ -1102,7 +1138,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         title: TROLL_GROUP_TITLE,
         position,
         created_by: TROLL_GROUP_CREATED_BY,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        vote_count: 0
       };
     const previousGroups = cardGroups;
     const previousCards = cards;
@@ -1122,7 +1159,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           column_id: card.column_id,
           title: TROLL_GROUP_TITLE,
           position,
-          created_by: TROLL_GROUP_CREATED_BY
+          created_by: TROLL_GROUP_CREATED_BY,
+          vote_count: 0
         });
 
         if (insertError) {
@@ -1141,7 +1179,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       if (updateError) {
         throw updateError;
       }
-    }, "Troll move failed");
+    }, "Troll move failed", { reload: false });
 
     if (!saved) {
       setCardGroups(previousGroups);
@@ -1179,6 +1217,134 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }, "Card move failed");
 
     if (!saved) {
+      setCards(previousCards);
+    }
+  }
+
+  async function moveGroupToColumn(group: CardGroup, columnId: string) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    if (group.column_id === columnId) {
+      return;
+    }
+
+    const client = supabase;
+    const position = nextPosition();
+    const previousGroups = cardGroups;
+    const previousCards = cards;
+
+    setCardGroups((currentGroups) =>
+      currentGroups.map((currentGroup) => (currentGroup.id === group.id ? { ...currentGroup, column_id: columnId, position } : currentGroup))
+    );
+    setCards((currentCards) =>
+      currentCards.map((currentCard) =>
+        currentCard.group_id === group.id ? { ...currentCard, column_id: columnId } : currentCard
+      )
+    );
+
+    const saved = await performMutation(async () => {
+      const { error: groupError } = await client.from("card_groups").update({ column_id: columnId, position }).eq("id", group.id);
+      if (groupError) {
+        throw groupError;
+      }
+
+      const { error: cardsError } = await client.from("cards").update({ column_id: columnId }).eq("group_id", group.id);
+      if (cardsError) {
+        throw cardsError;
+      }
+    }, "Group move failed", { reload: false });
+
+    if (!saved) {
+      setCardGroups(previousGroups);
+      setCards(previousCards);
+    }
+  }
+
+  async function moveGroupToTroll(group: CardGroup) {
+    if (!supabase || !room || !participant || currentPhase !== "discuss") {
+      return;
+    }
+
+    if (isTrollGroup(group)) {
+      return;
+    }
+
+    const members = cards.filter((card) => card.group_id === group.id);
+    if (members.length === 0) {
+      return;
+    }
+
+    const client = supabase;
+    const roomId = room.id;
+    const existingTrollGroup = cardGroups.find((candidate) => candidate.room_id === roomId && isTrollGroup(candidate));
+    const trollGroupId = existingTrollGroup?.id ?? crypto.randomUUID();
+    const basePosition = nextPosition();
+    const sortedMembers = [...members].sort((first, second) => first.position - second.position || first.created_at.localeCompare(second.created_at));
+
+    const optimisticTrollGroup: CardGroup =
+      existingTrollGroup ?? {
+        id: trollGroupId,
+        room_id: roomId,
+        column_id: group.column_id,
+        title: TROLL_GROUP_TITLE,
+        position: basePosition,
+        created_by: TROLL_GROUP_CREATED_BY,
+        created_at: new Date().toISOString(),
+        vote_count: 0
+      };
+
+    const previousGroups = cardGroups;
+    const previousCards = cards;
+
+    setCardGroups((currentGroups) => [...currentGroups.filter((candidate) => candidate.id !== trollGroupId), optimisticTrollGroup]);
+    setCards((currentCards) =>
+      currentCards.map((currentCard) => {
+        const memberIndex = sortedMembers.findIndex((member) => member.id === currentCard.id);
+        if (memberIndex === -1) {
+          return currentCard;
+        }
+
+        return { ...currentCard, group_id: trollGroupId, position: basePosition + memberIndex };
+      })
+    );
+
+    const saved = await performMutation(async () => {
+      if (!existingTrollGroup) {
+        const { error: insertError } = await client.from("card_groups").insert({
+          id: trollGroupId,
+          room_id: roomId,
+          column_id: group.column_id,
+          title: TROLL_GROUP_TITLE,
+          position: basePosition,
+          created_by: TROLL_GROUP_CREATED_BY,
+          vote_count: 0
+        });
+
+        if (insertError) {
+          throw insertError;
+        }
+      }
+
+      for (let index = 0; index < sortedMembers.length; index += 1) {
+        const member = sortedMembers[index];
+        const { error: updateError } = await client
+          .from("cards")
+          .update({
+            group_id: trollGroupId,
+            position: basePosition + index
+          })
+          .eq("id", member.id);
+
+        if (updateError) {
+          throw updateError;
+        }
+      }
+    }, "Troll move failed", { reload: false });
+
+    if (!saved) {
+      setCardGroups(previousGroups);
       setCards(previousCards);
     }
   }
@@ -1330,6 +1496,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       id: crypto.randomUUID(),
       room_id: room.id,
       card_id: card.id,
+      group_id: null,
       title: card.content,
       assignee_participant_id: null,
       status: "todo",
@@ -1344,7 +1511,52 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         id: optimisticItem.id,
         room_id: room.id,
         card_id: card.id,
+        group_id: null,
         title: card.content,
+        status: "todo",
+        notes: null,
+        position
+      });
+
+      if (insertError) {
+        throw insertError;
+      }
+    }, "Action item creation failed");
+  }
+
+  async function createActionItemFromGroup(group: CardGroup) {
+    if (!supabase || !room) {
+      return;
+    }
+
+    if (actionItems.some((item) => item.group_id === group.id)) {
+      showMutationError("This group is already in Actions.");
+      return;
+    }
+
+    const client = supabase;
+    const position = nextPosition();
+    const optimisticItem: ActionItem = {
+      id: crypto.randomUUID(),
+      room_id: room.id,
+      card_id: null,
+      group_id: group.id,
+      title: group.title,
+      assignee_participant_id: null,
+      status: "todo",
+      notes: null,
+      position,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    setActionItems((currentItems) => [...currentItems, optimisticItem]);
+    await performMutation(async () => {
+      const { error: insertError } = await client.from("action_items").insert({
+        id: optimisticItem.id,
+        room_id: room.id,
+        card_id: null,
+        group_id: group.id,
+        title: group.title,
         status: "todo",
         notes: null,
         position
@@ -1388,10 +1600,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    if (card.group_id) {
+      const parentGroup = cardGroups.find((group) => group.id === card.group_id);
+      if (parentGroup) {
+        await voteGroup(parentGroup);
+      }
+      return;
+    }
+
     const client = supabase;
     const roomId = room.id;
     const participantId = participant.id;
-    const existingVote = votes.find((vote) => vote.card_id === card.id && vote.participant_id === participant.id);
+    const existingVote = votes.find(
+      (vote) => voteTargetsCard(vote, card.id) && vote.participant_id === participant.id
+    );
     if (existingVote) {
       const previousVotes = votes;
       const previousCards = cards;
@@ -1426,6 +1648,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       id: crypto.randomUUID(),
       room_id: roomId,
       card_id: card.id,
+      group_id: null,
       participant_id: participantId,
       created_at: new Date().toISOString()
     };
@@ -1443,6 +1666,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         id: optimisticVote.id,
         room_id: roomId,
         card_id: card.id,
+        group_id: null,
         participant_id: participantId
       });
       if (insertError) {
@@ -1464,8 +1688,17 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const client = supabase;
     const roomId = room.id;
     const participantId = participant.id;
+    if (card.group_id) {
+      const parentGroup = cardGroups.find((group) => group.id === card.group_id);
+      if (parentGroup) {
+        await reactToGroup(parentGroup, emoji);
+      }
+      return;
+    }
+
     const existingReaction = reactions.find(
-      (reaction) => reaction.card_id === card.id && reaction.participant_id === participantId && reaction.emoji === emoji
+      (reaction) =>
+        reactionTargetsCard(reaction, card.id) && reaction.participant_id === participantId && reaction.emoji === emoji
     );
 
     if (existingReaction) {
@@ -1489,6 +1722,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       id: crypto.randomUUID(),
       room_id: roomId,
       card_id: card.id,
+      group_id: null,
       participant_id: participantId,
       emoji,
       created_at: new Date().toISOString()
@@ -1501,6 +1735,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         id: optimisticReaction.id,
         room_id: roomId,
         card_id: card.id,
+        group_id: null,
         participant_id: participantId,
         emoji
       });
@@ -1508,18 +1743,200 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         throw insertError;
       }
 
-      if (emoji === "🔥" && card.author_participant_id === participantId) {
-        const now = Date.now();
-        const lastCard = selfFireLastByCardRef.current[card.id] ?? 0;
-        if (now - selfFireLastGlobalRef.current >= 8000 && now - lastCard >= 12_000) {
-          selfFireLastGlobalRef.current = now;
-          selfFireLastByCardRef.current[card.id] = now;
-          dispatchSelfFireTooltip(card.id);
-        }
-      }
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : "Reaction failed";
       showMutationError(`Reaction failed: ${message}`);
+      setReactions(previousReactions);
+    }
+  }
+
+  async function voteGroup(group: CardGroup) {
+    if (!supabase || !room || !participant) {
+      return;
+    }
+
+    const client = supabase;
+    const roomId = room.id;
+    const participantId = participant.id;
+
+    const cardIdsInGroup = new Set(cards.filter((card) => card.group_id === group.id).map((card) => card.id));
+    const participantVotes = votes.filter((vote) => vote.participant_id === participantId);
+    const strayCardVotes = participantVotes.filter((vote) => isStrayGroupedCardVote(vote, cardIdsInGroup));
+    const existingGroupVote = participantVotes.find((vote) => voteTargetsGroup(vote, group.id));
+
+    async function removeStrayCardVotes() {
+      if (strayCardVotes.length === 0) {
+        return true;
+      }
+
+      const strayIds = strayCardVotes.map((vote) => vote.id);
+      const previousVotes = votes;
+      const previousCards = cards;
+      setVotes((currentVotes) => currentVotes.filter((vote) => !strayIds.includes(vote.id)));
+      setCards((currentCards) =>
+        currentCards.map((currentCard) => {
+          if (!cardIdsInGroup.has(currentCard.id)) {
+            return currentCard;
+          }
+          const hadStray = strayCardVotes.some((vote) => vote.card_id === currentCard.id);
+          return hadStray ? { ...currentCard, vote_count: Math.max(0, currentCard.vote_count - 1) } : currentCard;
+        })
+      );
+
+      try {
+        const { error: deleteError } = await client.from("votes").delete().in("id", strayIds);
+        if (deleteError) {
+          throw deleteError;
+        }
+        return true;
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : "Vote cleanup failed";
+        showMutationError(`Vote failed: ${message}`);
+        setVotes(previousVotes);
+        setCards(previousCards);
+        return false;
+      }
+    }
+
+    if (existingGroupVote) {
+      const previousVotes = votes;
+      const previousGroups = cardGroups;
+      setVotes((currentVotes) => currentVotes.filter((vote) => vote.id !== existingGroupVote.id));
+      setCardGroups((currentGroups) =>
+        currentGroups.map((currentGroup) =>
+          currentGroup.id === group.id
+            ? { ...currentGroup, vote_count: Math.max(0, currentGroup.vote_count - 1) }
+            : currentGroup
+        )
+      );
+
+      try {
+        const { error: deleteError } = await client.from("votes").delete().eq("id", existingGroupVote.id);
+        if (deleteError) {
+          throw deleteError;
+        }
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : "Vote removal failed";
+        showMutationError(`Vote removal failed: ${message}`);
+        setVotes(previousVotes);
+        setCardGroups(previousGroups);
+      }
+      return;
+    }
+
+    if (strayCardVotes.length > 0) {
+      await removeStrayCardVotes();
+      return;
+    }
+
+    const votesAfterStrayCleanup = votes;
+    const usedVotes = participantVotes.filter((vote) => !isStrayGroupedCardVote(vote, cardIdsInGroup)).length;
+    if (usedVotes >= getVoteLimit(room)) {
+      showMutationError("Vote limit reached. Remove one of your votes before adding another.");
+      return;
+    }
+
+    const optimisticVote: Vote = {
+      id: crypto.randomUUID(),
+      room_id: roomId,
+      card_id: null,
+      group_id: group.id,
+      participant_id: participantId,
+      created_at: new Date().toISOString()
+    };
+    const previousVotes = votesAfterStrayCleanup;
+    const previousGroups = cardGroups;
+    setVotes((currentVotes) => [...currentVotes, optimisticVote]);
+    setCardGroups((currentGroups) =>
+      currentGroups.map((currentGroup) =>
+        currentGroup.id === group.id ? { ...currentGroup, vote_count: currentGroup.vote_count + 1 } : currentGroup
+      )
+    );
+
+    try {
+      const { error: insertError } = await client.from("votes").insert({
+        id: optimisticVote.id,
+        room_id: roomId,
+        card_id: null,
+        group_id: group.id,
+        participant_id: participantId
+      });
+      if (insertError) {
+        throw insertError;
+      }
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : "Vote failed";
+      const hint =
+        message.includes("group_id") || message.includes("votes_target_xor") || message.includes("column")
+          ? " Run the Supabase migration for group votes (supabase/migrations/20260213120000_group_votes_reactions.sql)."
+          : "";
+      showMutationError(`Vote failed: ${message}${hint}`);
+      setVotes(previousVotes);
+      setCardGroups(previousGroups);
+    }
+  }
+
+  async function reactToGroup(group: CardGroup, emoji: string) {
+    if (!supabase || !room || !participant) {
+      return;
+    }
+
+    const client = supabase;
+    const roomId = room.id;
+    const participantId = participant.id;
+    const existingReaction = reactions.find(
+      (reaction) =>
+        reactionTargetsGroup(reaction, group.id) && reaction.participant_id === participantId && reaction.emoji === emoji
+    );
+
+    if (existingReaction) {
+      const previousReactions = reactions;
+      setReactions((currentReactions) => currentReactions.filter((reaction) => reaction.id !== existingReaction.id));
+
+      try {
+        const { error: deleteError } = await client.from("reactions").delete().eq("id", existingReaction.id);
+        if (deleteError) {
+          throw deleteError;
+        }
+      } catch (caughtError) {
+        const message = caughtError instanceof Error ? caughtError.message : "Reaction removal failed";
+        showMutationError(`Reaction removal failed: ${message}`);
+        setReactions(previousReactions);
+      }
+      return;
+    }
+
+    const optimisticReaction: Reaction = {
+      id: crypto.randomUUID(),
+      room_id: roomId,
+      card_id: null,
+      group_id: group.id,
+      participant_id: participantId,
+      emoji,
+      created_at: new Date().toISOString()
+    };
+    const previousReactions = reactions;
+    setReactions((currentReactions) => [...currentReactions, optimisticReaction]);
+
+    try {
+      const { error: insertError } = await client.from("reactions").insert({
+        id: optimisticReaction.id,
+        room_id: roomId,
+        card_id: null,
+        group_id: group.id,
+        participant_id: participantId,
+        emoji
+      });
+      if (insertError) {
+        throw insertError;
+      }
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : "Reaction failed";
+      const hint =
+        message.includes("group_id") || message.includes("reactions_target_xor") || message.includes("column")
+          ? " Run the Supabase migration for group reactions (supabase/migrations/20260213120000_group_votes_reactions.sql)."
+          : "";
+      showMutationError(`Reaction failed: ${message}${hint}`);
       setReactions(previousReactions);
     }
   }
@@ -1560,6 +1977,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       const { error: insertError } = await client.from("action_items").insert({
         room_id: roomId,
         card_id: card.id,
+        group_id: null,
         title: card.content,
         notes: null,
         position: nextPosition()
@@ -1807,10 +2225,15 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         onGroupCards={groupCards}
         onUngroupCard={ungroupCard}
         onVoteCard={voteCard}
+        onVoteGroup={voteGroup}
         onReact={reactToCard}
+        onReactGroup={reactToGroup}
         onCreateActionItemFromCard={createActionItemFromCard}
+        onCreateActionItemFromGroup={createActionItemFromGroup}
         onUpdateActionItem={updateActionItem}
         onMoveCardToTroll={moveCardToTroll}
+        onMoveGroupToTroll={moveGroupToTroll}
+        onMoveGroupToColumn={moveGroupToColumn}
       />
 
       <CommentDrawer

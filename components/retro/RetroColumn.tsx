@@ -168,7 +168,9 @@ export function RetroColumn({
               comments={comments}
               reactions={reactions}
               votes={votes}
-              actionItem={actionItems.find((item) => item.card_id === card.id)}
+              actionItem={actionItems.find(
+                (item) => item.card_id === card.id || (Boolean(item.group_id) && item.group_id === card.group_id)
+              )}
               onOpenComments={onOpenComments}
               onEdit={onEditCard}
               onDelete={onDeleteCard}
