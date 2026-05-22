@@ -145,12 +145,16 @@ export function GroupBoard({
   );
   const trollGroup = groups.find(isTrollGroup);
   const trollCards = trollGroup ? cards.filter((card) => card.group_id === trollGroup.id) : [];
-  const boardGroups = groups
-    .filter((group) => !isTrollGroup(group))
-    .filter((group) => !actionGroupIds.has(group.id));
   const boardCards = (trollGroup ? cards.filter((card) => card.group_id !== trollGroup.id) : cards).filter(
     (card) => !actionCardIds.has(card.id) && !(card.group_id && actionGroupIds.has(card.group_id))
   );
+  // Never render an empty group on the board. Empty groups can exist transiently in local
+  // state (realtime INSERT arriving before its companion card UPDATEs, optimistic mutations,
+  // or pending cleanup) and showing them produces ghost groups that flicker in and out.
+  const boardGroups = groups
+    .filter((group) => !isTrollGroup(group))
+    .filter((group) => !actionGroupIds.has(group.id))
+    .filter((group) => boardCards.some((card) => card.group_id === group.id));
   const activeCard = activeDrag?.kind === "card" ? cards.find((card) => card.id === activeDrag.id) : null;
   const activeGroup = activeDrag?.kind === "group" ? boardGroups.find((group) => group.id === activeDrag.id) : null;
   const activeActionItem = activeDrag?.kind === "action" ? actionItems.find((item) => item.id === activeDrag.id) : null;

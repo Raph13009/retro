@@ -127,7 +127,9 @@ export function GroupColumn({
 
       {expanded ? (
         <div className="scrollbar-hide min-h-0 flex-1 space-y-4 overflow-y-auto px-1.5 pb-4 pt-2 sm:pb-5">
-          {groups.map((group) => (
+          {groups
+            .filter((group) => cards.some((card) => card.group_id === group.id))
+            .map((group) => (
             <CardGroup
               key={group.id}
               group={group}
