@@ -332,9 +332,19 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       return;
     }
 
+    // Defer empty-group cleanup so realtime UPDATE events for cards have time to arrive after a
+    // INSERT card_groups event from another client (e.g. when someone drops a card onto another to
+    // create a new group). Without this delay we would race the multi-statement mutation and
+    // permanently delete the freshly-created group on remote peers.
     const client = supabase;
-    setCardGroups((currentGroups) => currentGroups.filter((group) => !emptyGroupIds.includes(group.id)));
-    void client.from("card_groups").delete().in("id", emptyGroupIds);
+    const timer = window.setTimeout(() => {
+      setCardGroups((currentGroups) => currentGroups.filter((group) => !emptyGroupIds.includes(group.id)));
+      void client.from("card_groups").delete().in("id", emptyGroupIds);
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [cardGroups, cards, room]);
 
   useEffect(() => {
@@ -1595,6 +1605,117 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     }, "Action item update failed");
   }
 
+  async function moveActionItemToColumn(item: ActionItem, columnId: string) {
+    if (!supabase || !room || currentPhase !== "discuss") {
+      return;
+    }
+
+    const card = item.card_id ? cards.find((candidate) => candidate.id === item.card_id) : undefined;
+    const group = item.group_id ? cardGroups.find((candidate) => candidate.id === item.group_id) : undefined;
+    if (!card && !group) {
+      return;
+    }
+
+    const client = supabase;
+    const position = nextPosition();
+    const previousItems = actionItems;
+    const previousCards = cards;
+    const previousGroups = cardGroups;
+
+    setActionItems((currentItems) => currentItems.filter((currentItem) => currentItem.id !== item.id));
+    if (card) {
+      setCards((currentCards) =>
+        currentCards.map((currentCard) =>
+          currentCard.id === card.id ? { ...currentCard, column_id: columnId, group_id: null, position } : currentCard
+        )
+      );
+    } else if (group) {
+      setCardGroups((currentGroups) =>
+        currentGroups.map((currentGroup) =>
+          currentGroup.id === group.id ? { ...currentGroup, column_id: columnId, position } : currentGroup
+        )
+      );
+      setCards((currentCards) =>
+        currentCards.map((currentCard) =>
+          currentCard.group_id === group.id ? { ...currentCard, column_id: columnId } : currentCard
+        )
+      );
+    }
+
+    const saved = await performMutation(async () => {
+      const { error: deleteError } = await client.from("action_items").delete().eq("id", item.id);
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      if (card) {
+        const { error: cardError } = await client
+          .from("cards")
+          .update({ column_id: columnId, group_id: null, position })
+          .eq("id", card.id);
+        if (cardError) {
+          throw cardError;
+        }
+        return;
+      }
+
+      if (group) {
+        const { error: groupError } = await client.from("card_groups").update({ column_id: columnId, position }).eq("id", group.id);
+        if (groupError) {
+          throw groupError;
+        }
+
+        const { error: cardsError } = await client.from("cards").update({ column_id: columnId }).eq("group_id", group.id);
+        if (cardsError) {
+          throw cardsError;
+        }
+      }
+    }, "Could not move action item back to the board");
+
+    if (!saved) {
+      setActionItems(previousItems);
+      setCards(previousCards);
+      setCardGroups(previousGroups);
+    }
+  }
+
+  async function moveActionItemToTroll(item: ActionItem) {
+    if (!supabase || !room || currentPhase !== "discuss") {
+      return;
+    }
+
+    const card = item.card_id ? cards.find((candidate) => candidate.id === item.card_id) : undefined;
+    const group = item.group_id ? cardGroups.find((candidate) => candidate.id === item.group_id) : undefined;
+    if (!card && !group) {
+      return;
+    }
+
+    const client = supabase;
+    const previousItems = actionItems;
+    setActionItems((currentItems) => currentItems.filter((currentItem) => currentItem.id !== item.id));
+
+    const saved = await performMutation(async () => {
+      const { error: deleteError } = await client.from("action_items").delete().eq("id", item.id);
+      if (deleteError) {
+        throw deleteError;
+      }
+    }, "Could not move action item to Troll");
+
+    if (!saved) {
+      setActionItems(previousItems);
+      return;
+    }
+
+    if (card) {
+      await moveCardToTroll(card);
+      return;
+    }
+
+    if (group) {
+      await moveGroupToTroll(group);
+    }
+  }
+
   async function voteCard(card: RetroCard) {
     if (!supabase || !room || !participant) {
       return;
@@ -2231,6 +2352,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         onCreateActionItemFromCard={createActionItemFromCard}
         onCreateActionItemFromGroup={createActionItemFromGroup}
         onUpdateActionItem={updateActionItem}
+        onMoveActionItemToColumn={moveActionItemToColumn}
+        onMoveActionItemToTroll={moveActionItemToTroll}
         onMoveCardToTroll={moveCardToTroll}
         onMoveGroupToTroll={moveGroupToTroll}
         onMoveGroupToColumn={moveGroupToColumn}

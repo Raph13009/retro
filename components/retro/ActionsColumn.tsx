@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { useDroppable } from "@dnd-kit/core";
-import { Check, ClipboardCheck } from "lucide-react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { Check, ClipboardCheck, GripVertical } from "lucide-react";
 import type { ActionItem, CardGroup, Participant, RetroCard } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +34,7 @@ export function ActionsColumn({ actionItems, cards, cardGroups, participants, on
             </span>
             <h2 className="text-lg font-extrabold tracking-[-0.03em] text-slate-950">Actions</h2>
           </div>
-          <p className="mt-2 text-sm font-semibold text-[#557b5e]">Turn decisions into next steps.</p>
+          <p className="mt-2 text-sm font-semibold text-[#557b5e]">Drag items here, then back to a column when needed.</p>
         </div>
         <span className="rounded-full border border-[#cddfd2] bg-white/62 px-2.5 py-1 text-xs font-extrabold text-[#557b5e]">{orderedItems.length}</span>
       </div>
@@ -77,6 +77,7 @@ function ActionCard({
   participants: Participant[];
   onUpdateActionItem: (item: ActionItem, patch: Partial<ActionItem>) => void;
 }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `action-drag:${item.id}` });
   const groupSummary =
     sourceGroup && groupCards.length > 0 ? (
       <ul className="mt-2 list-inside list-disc space-y-1 text-xs font-semibold text-slate-500">
@@ -89,8 +90,20 @@ function ActionCard({
     ) : null;
 
   return (
-    <article className="retro-card-surface rounded-[1.4rem] p-3">
+    <article
+      ref={setNodeRef}
+      className={cn("retro-card-surface rounded-[1.4rem] p-3", isDragging && "opacity-45")}
+    >
       <div className="flex items-start justify-between gap-3">
+        <button
+          type="button"
+          className="mt-0.5 shrink-0 rounded-full p-1 text-[#557b5e] hover:bg-[#dfece2] cursor-grab active:cursor-grabbing"
+          aria-label="Drag action item back to the board"
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
         <input
           defaultValue={item.title}
           onBlur={(event) => {

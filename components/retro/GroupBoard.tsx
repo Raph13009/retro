@@ -47,6 +47,8 @@ type GroupBoardProps = {
   onCreateActionItemFromCard: (card: RetroCard) => void;
   onCreateActionItemFromGroup: (group: CardGroup) => void;
   onUpdateActionItem: (item: ActionItem, patch: Partial<ActionItem>) => void;
+  onMoveActionItemToColumn: (item: ActionItem, columnId: string) => void;
+  onMoveActionItemToTroll: (item: ActionItem) => void;
   onMoveCardToTroll: (card: RetroCard) => void;
   onMoveGroupToTroll: (group: CardGroup) => void;
   onMoveGroupToColumn: (group: CardGroup, columnId: string) => void;
@@ -54,11 +56,13 @@ type GroupBoardProps = {
 
 const collisionDetection: CollisionDetection = (args) => {
   const activeIdStr = String(args.active.id);
-  if (activeIdStr.startsWith("group-drag:")) {
+  if (activeIdStr.startsWith("group-drag:") || activeIdStr.startsWith("action-drag:")) {
     const collisions = rectIntersection(args);
-    const actionsHit = collisions.find((collision) => String(collision.id) === "actions-column");
-    if (actionsHit) {
-      return [actionsHit];
+    if (activeIdStr.startsWith("group-drag:")) {
+      const actionsHit = collisions.find((collision) => String(collision.id) === "actions-column");
+      if (actionsHit) {
+        return [actionsHit];
+      }
     }
     const trollHit = collisions.find((collision) => String(collision.id) === TROLL_DROP_ID);
     if (trollHit) {
@@ -118,21 +122,38 @@ export function GroupBoard({
   onCreateActionItemFromCard,
   onCreateActionItemFromGroup,
   onUpdateActionItem,
+  onMoveActionItemToColumn,
+  onMoveActionItemToTroll,
   onMoveCardToTroll,
   onMoveGroupToTroll,
   onMoveGroupToColumn
 }: GroupBoardProps) {
   const { collapsed: sidebarCollapsed } = useSidebarUi();
   const { ref: boardScrollRef, thumbActive } = useBoardHorizontalScrollPeek();
-  const [activeDrag, setActiveDrag] = useState<{ kind: "card"; id: string } | { kind: "group"; id: string } | null>(null);
+  const [activeDrag, setActiveDrag] = useState<
+    { kind: "card"; id: string } | { kind: "group"; id: string } | { kind: "action"; id: string } | null
+  >(null);
   const [trollPortal, setTrollPortal] = useState<HTMLElement | null>(null);
   const orderedColumns = [...columns].sort((first, second) => first.sort_order - second.sort_order);
+  const actionCardIds = useMemo(
+    () => new Set(actionItems.map((item) => item.card_id).filter((cardId): cardId is string => Boolean(cardId))),
+    [actionItems]
+  );
+  const actionGroupIds = useMemo(
+    () => new Set(actionItems.map((item) => item.group_id).filter((groupId): groupId is string => Boolean(groupId))),
+    [actionItems]
+  );
   const trollGroup = groups.find(isTrollGroup);
   const trollCards = trollGroup ? cards.filter((card) => card.group_id === trollGroup.id) : [];
-  const boardGroups = groups.filter((group) => !isTrollGroup(group));
-  const boardCards = trollGroup ? cards.filter((card) => card.group_id !== trollGroup.id) : cards;
+  const boardGroups = groups
+    .filter((group) => !isTrollGroup(group))
+    .filter((group) => !actionGroupIds.has(group.id));
+  const boardCards = (trollGroup ? cards.filter((card) => card.group_id !== trollGroup.id) : cards).filter(
+    (card) => !actionCardIds.has(card.id) && !(card.group_id && actionGroupIds.has(card.group_id))
+  );
   const activeCard = activeDrag?.kind === "card" ? cards.find((card) => card.id === activeDrag.id) : null;
   const activeGroup = activeDrag?.kind === "group" ? boardGroups.find((group) => group.id === activeDrag.id) : null;
+  const activeActionItem = activeDrag?.kind === "action" ? actionItems.find((item) => item.id === activeDrag.id) : null;
   const activeParticipant = activeCard ? participants.find((participant) => participant.id === activeCard.author_participant_id) : undefined;
   const maxVoteCount = useMemo(() => {
     const cardMax = boardCards.reduce((maxVotes, card) => Math.max(maxVotes, card.vote_count), 0);
@@ -148,6 +169,10 @@ export function GroupBoard({
     const activeId = String(event.active.id);
     if (activeId.startsWith("group-drag:")) {
       setActiveDrag({ kind: "group", id: activeId.replace("group-drag:", "") });
+      return;
+    }
+    if (activeId.startsWith("action-drag:")) {
+      setActiveDrag({ kind: "action", id: activeId.replace("action-drag:", "") });
       return;
     }
     if (activeId.startsWith("card:")) {
@@ -188,6 +213,26 @@ export function GroupBoard({
       if (overId.startsWith("column:")) {
         const columnId = overId.replace("column:", "");
         onMoveGroupToColumn(group, columnId);
+      }
+      return;
+    }
+
+    if (activeId.startsWith("action-drag:")) {
+      if (!overId || phase !== "discuss") {
+        return;
+      }
+      const actionItem = actionItems.find((candidate) => candidate.id === activeId.replace("action-drag:", ""));
+      if (!actionItem) {
+        return;
+      }
+
+      if (overId === TROLL_DROP_ID) {
+        onMoveActionItemToTroll(actionItem);
+        return;
+      }
+
+      if (overId.startsWith("column:")) {
+        onMoveActionItemToColumn(actionItem, overId.replace("column:", ""));
       }
       return;
     }
@@ -292,8 +337,8 @@ export function GroupBoard({
         {phase === "discuss" ? (
           <ActionsColumn
             actionItems={actionItems}
-            cards={boardCards}
-            cardGroups={boardGroups}
+            cards={cards}
+            cardGroups={groups.filter((group) => !isTrollGroup(group))}
             participants={participants}
             onUpdateActionItem={onUpdateActionItem}
           />
@@ -310,6 +355,7 @@ export function GroupBoard({
           <CardDragOverlay card={activeCard} participant={activeParticipant} phase={phase} currentParticipantId={currentParticipantId} />
         ) : null}
         {activeGroup ? <GroupDragOverlay group={activeGroup} cardCount={boardCards.filter((card) => card.group_id === activeGroup.id).length} /> : null}
+        {activeActionItem ? <ActionItemDragOverlay item={activeActionItem} /> : null}
       </DragOverlay>
     </DndContext>
     </div>
@@ -544,6 +590,20 @@ function CardDragOverlay({
         )}
         <span className="rounded-full bg-[#ebe8f4] px-2 py-1 text-xs font-extrabold text-[#4f4974]">Drop to group</span>
       </div>
+    </article>
+  );
+}
+
+function ActionItemDragOverlay({ item }: { item: ActionItem }) {
+  return (
+    <article
+      className={cn(
+        "retro-card-surface w-[min(340px,92vw)] rotate-[-0.5deg] rounded-[1.4rem] border-[#cddfd2]/90 bg-[#eef5ef]/95 p-4 opacity-95",
+        "shadow-[0_28px_80px_-38px_rgba(63,104,75,0.35)] ring-1 ring-[#cddfd2]/80"
+      )}
+    >
+      <p className="line-clamp-4 text-sm font-extrabold leading-5 text-slate-900">{item.title}</p>
+      <p className="mt-3 text-xs font-bold text-[#557b5e]">Action item — drop on a column or Troll</p>
     </article>
   );
 }

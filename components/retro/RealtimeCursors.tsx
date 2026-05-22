@@ -68,13 +68,19 @@ export function RealtimeCursors({ room, participant, onlineParticipants, contain
   const latestPayloadRef = useRef<CursorWirePayload | null>(null);
   const pendingSendRef = useRef<number | null>(null);
   const sendFailureCountRef = useRef(0);
+  // Tracks the local "see other cursors" preference without re-subscribing the channel
+  // when it toggles. We always broadcast our own pointer so chaos-mode peers can see us;
+  // only the reception/display of others' cursors is gated by this ref.
+  const liveCursorsEnabledRef = useRef(liveCursorsEnabled);
 
   useEffect(() => {
+    liveCursorsEnabledRef.current = liveCursorsEnabled;
     if (!liveCursorsEnabled) {
       setCursors({});
-      return;
     }
+  }, [liveCursorsEnabled]);
 
+  useEffect(() => {
     if (!supabase) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[RealtimeCursors] Supabase client missing — check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
@@ -209,6 +215,9 @@ export function RealtimeCursors({ room, participant, onlineParticipants, contain
 
     channel
       .on("broadcast", { event: "cursor" }, ({ payload }) => {
+        if (!liveCursorsEnabledRef.current) {
+          return;
+        }
         if (!isValidIncomingCursor(payload, participantId)) {
           return;
         }
@@ -220,6 +229,9 @@ export function RealtimeCursors({ room, participant, onlineParticipants, contain
         }));
       })
       .on("broadcast", { event: "cursor_leave" }, ({ payload }) => {
+        if (!liveCursorsEnabledRef.current) {
+          return;
+        }
         const leaveId = (payload as { participantId?: string })?.participantId;
         if (!leaveId) {
           return;
@@ -313,7 +325,7 @@ export function RealtimeCursors({ room, participant, onlineParticipants, contain
       void client.removeChannel(channel);
       setCursors({});
     };
-  }, [containerRef, liveCursorsEnabled, participant.avatar_color, participant.id, participant.name, room.id]);
+  }, [containerRef, participant.avatar_color, participant.id, participant.name, room.id]);
 
   useEffect(() => {
     if (!liveCursorsEnabled) {
