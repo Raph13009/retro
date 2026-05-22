@@ -116,6 +116,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [groupToRename, setGroupToRename] = useState<CardGroup | null>(null);
   const operationErrorTimeoutRef = useRef<number | null>(null);
   const oneMinuteNoticeKeyRef = useRef<string | null>(null);
+  const cardGroupFirstObservedRef = useRef<Map<string, number>>(new Map());
   const [retroNoticeBanner, setRetroNoticeBanner] = useState({ visible: false, message: "" });
   const [cursorModeHint, setCursorModeHint] = useState("");
   const cursorHintTimeoutRef = useRef<number | null>(null);
@@ -323,24 +324,77 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }, []);
 
   useEffect(() => {
-    if (!supabase || !room || cardGroups.length === 0) {
+    if (!supabase || !room) {
       return;
     }
 
-    const emptyGroupIds = cardGroups.filter((group) => !cards.some((card) => card.group_id === group.id)).map((group) => group.id);
-    if (emptyGroupIds.length === 0) {
+    // Track when each group was first observed locally. Groups freshly arrived via realtime
+    // (e.g. another client created a group with cards, the INSERT card_groups event lands
+    // before the UPDATE cards events) are momentarily empty; we must NOT delete those right
+    // away or we destroy the freshly-created group before its cards catch up. Groups that
+    // have been observed for a while and just became empty are the legitimate cleanup case
+    // (the local user moved the last card out) and should disappear immediately to avoid an
+    // empty-group ghost lingering on the board.
+    const now = Date.now();
+    const observedMap = cardGroupFirstObservedRef.current;
+    const currentIds = new Set(cardGroups.map((group) => group.id));
+    for (const id of currentIds) {
+      if (!observedMap.has(id)) {
+        observedMap.set(id, now);
+      }
+    }
+    for (const id of Array.from(observedMap.keys())) {
+      if (!currentIds.has(id)) {
+        observedMap.delete(id);
+      }
+    }
+
+    if (cardGroups.length === 0) {
       return;
     }
 
-    // Defer empty-group cleanup so realtime UPDATE events for cards have time to arrive after a
-    // INSERT card_groups event from another client (e.g. when someone drops a card onto another to
-    // create a new group). Without this delay we would race the multi-statement mutation and
-    // permanently delete the freshly-created group on remote peers.
+    const emptyGroups = cardGroups.filter((group) => !cards.some((card) => card.group_id === group.id));
+    if (emptyGroups.length === 0) {
+      return;
+    }
+
+    const STABILIZATION_MS = 3000;
+    const matureEmptyIds: string[] = [];
+    const youngEmptyIds: string[] = [];
+    let maxRemainingMs = 0;
+
+    for (const group of emptyGroups) {
+      const firstObservedAt = observedMap.get(group.id) ?? now;
+      const localAge = now - firstObservedAt;
+      if (localAge >= STABILIZATION_MS) {
+        matureEmptyIds.push(group.id);
+      } else {
+        youngEmptyIds.push(group.id);
+        const remaining = STABILIZATION_MS - localAge + 50;
+        if (remaining > maxRemainingMs) {
+          maxRemainingMs = remaining;
+        }
+      }
+    }
+
     const client = supabase;
+
+    if (matureEmptyIds.length > 0) {
+      setCardGroups((currentGroups) => currentGroups.filter((group) => !matureEmptyIds.includes(group.id)));
+      void client.from("card_groups").delete().in("id", matureEmptyIds);
+    }
+
+    if (youngEmptyIds.length === 0) {
+      return;
+    }
+
+    // Re-check the young empty groups once they have aged past the stabilization window.
+    // The effect cleanup below cancels this timer if cards/cardGroups change beforehand
+    // (e.g. the awaited UPDATE cards events arrive and re-populate the group).
     const timer = window.setTimeout(() => {
-      setCardGroups((currentGroups) => currentGroups.filter((group) => !emptyGroupIds.includes(group.id)));
-      void client.from("card_groups").delete().in("id", emptyGroupIds);
-    }, 3000);
+      setCardGroups((currentGroups) => currentGroups.filter((group) => !youngEmptyIds.includes(group.id)));
+      void client.from("card_groups").delete().in("id", youngEmptyIds);
+    }, maxRemainingMs);
 
     return () => {
       window.clearTimeout(timer);
