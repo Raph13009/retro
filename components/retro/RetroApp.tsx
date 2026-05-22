@@ -69,6 +69,27 @@ function nextGroupTitle(groups: CardGroup[]) {
 
 const ONE_MINUTE_AVATAR_SRC = "/Screenshot 2026-05-11 at 17.27.17.png";
 
+// When a card is removed from a group, this computes whether the source group should be
+// dissolved. A group with fewer than 2 cards is not a real group: the sole remaining card
+// should become ungrouped and the group entity should be deleted.
+function getSourceGroupDissolve(
+  movedCardId: string,
+  sourceGroupId: string | null,
+  currentCards: RetroCard[]
+): { singleRemainingCard: RetroCard | null; dissolveGroupId: string | null } {
+  if (!sourceGroupId) {
+    return { singleRemainingCard: null, dissolveGroupId: null };
+  }
+  const remaining = currentCards.filter((c) => c.id !== movedCardId && c.group_id === sourceGroupId);
+  if (remaining.length >= 2) {
+    return { singleRemainingCard: null, dissolveGroupId: null };
+  }
+  return {
+    singleRemainingCard: remaining.length === 1 ? remaining[0] : null,
+    dissolveGroupId: sourceGroupId
+  };
+}
+
 type ConfirmRequest = {
   title: string;
   text: string;
@@ -1043,20 +1064,30 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       created_at: new Date().toISOString(),
       vote_count: 0
     };
+    // If the dragged card was in a group, that group may now have fewer than 2 cards.
+    const { singleRemainingCard: sourceRemainingCard, dissolveGroupId: sourceDissolveId } = getSourceGroupDissolve(
+      card.id,
+      card.group_id,
+      cards
+    );
     const previousGroups = cardGroups;
     const previousCards = cards;
 
-    setCardGroups((currentGroups) => [...currentGroups.filter((group) => group.id !== groupId), optimisticGroup]);
+    setCardGroups((currentGroups) => {
+      const filtered = currentGroups.filter((group) => group.id !== groupId && group.id !== sourceDissolveId);
+      return [...filtered, optimisticGroup];
+    });
     setCards((currentCards) =>
       currentCards.map((currentCard) => {
         if (currentCard.id === targetCard.id) {
           return { ...currentCard, column_id: targetColumnId, group_id: groupId, position: basePosition };
         }
-
         if (currentCard.id === card.id) {
           return { ...currentCard, column_id: targetColumnId, group_id: groupId, position: activePosition };
         }
-
+        if (sourceRemainingCard && currentCard.id === sourceRemainingCard.id) {
+          return { ...currentCard, group_id: null };
+        }
         return currentCard;
       })
     );
@@ -1072,34 +1103,30 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         vote_count: 0
       });
 
-      if (insertError) {
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
       const { error: targetUpdateError } = await client
         .from("cards")
-        .update({
-          column_id: targetColumnId,
-          group_id: groupId,
-          position: basePosition
-        })
+        .update({ column_id: targetColumnId, group_id: groupId, position: basePosition })
         .eq("id", targetCard.id);
 
-      if (targetUpdateError) {
-        throw targetUpdateError;
-      }
+      if (targetUpdateError) throw targetUpdateError;
 
       const { error: cardUpdateError } = await client
         .from("cards")
-        .update({
-          column_id: targetColumnId,
-          group_id: groupId,
-          position: activePosition
-        })
+        .update({ column_id: targetColumnId, group_id: groupId, position: activePosition })
         .eq("id", card.id);
 
-      if (cardUpdateError) {
-        throw cardUpdateError;
+      if (cardUpdateError) throw cardUpdateError;
+
+      if (sourceRemainingCard) {
+        const { error: siblingError } = await client.from("cards").update({ group_id: null }).eq("id", sourceRemainingCard.id);
+        if (siblingError) throw siblingError;
+      }
+
+      if (sourceDissolveId) {
+        const { error: deleteError } = await client.from("card_groups").delete().eq("id", sourceDissolveId);
+        if (deleteError) throw deleteError;
       }
     }, "Card grouping failed");
 
@@ -1158,29 +1185,42 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const client = supabase;
     const position = nextPosition();
     const previousCards = cards;
+    const previousGroups = cardGroups;
+    const { singleRemainingCard, dissolveGroupId } = getSourceGroupDissolve(card.id, card.group_id, cards);
+
     setCards((currentCards) =>
-      currentCards.map((currentCard) =>
-        currentCard.id === card.id ? { ...currentCard, column_id: group.column_id, group_id: group.id, position } : currentCard
-      )
+      currentCards.map((currentCard) => {
+        if (currentCard.id === card.id) return { ...currentCard, column_id: group.column_id, group_id: group.id, position };
+        if (singleRemainingCard && currentCard.id === singleRemainingCard.id) return { ...currentCard, group_id: null };
+        return currentCard;
+      })
     );
+    if (dissolveGroupId) {
+      setCardGroups((currentGroups) => currentGroups.filter((g) => g.id !== dissolveGroupId));
+    }
 
     const saved = await performMutation(async () => {
       const { error: updateError } = await client
         .from("cards")
-        .update({
-          column_id: group.column_id,
-          group_id: group.id,
-          position
-        })
+        .update({ column_id: group.column_id, group_id: group.id, position })
         .eq("id", card.id);
 
-      if (updateError) {
-        throw updateError;
+      if (updateError) throw updateError;
+
+      if (singleRemainingCard) {
+        const { error: siblingError } = await client.from("cards").update({ group_id: null }).eq("id", singleRemainingCard.id);
+        if (siblingError) throw siblingError;
+      }
+
+      if (dissolveGroupId) {
+        const { error: deleteError } = await client.from("card_groups").delete().eq("id", dissolveGroupId);
+        if (deleteError) throw deleteError;
       }
     }, "Card grouping failed");
 
     if (!saved) {
       setCards(previousCards);
+      setCardGroups(previousGroups);
     }
   }
 
@@ -1207,12 +1247,22 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       };
     const previousGroups = cardGroups;
     const previousCards = cards;
+    const { singleRemainingCard: sourceRemainingCard, dissolveGroupId: sourceDissolveId } = getSourceGroupDissolve(
+      card.id,
+      card.group_id,
+      cards
+    );
 
-    setCardGroups((currentGroups) => [...currentGroups.filter((group) => group.id !== trollGroupId), optimisticTrollGroup]);
+    setCardGroups((currentGroups) => {
+      const filtered = currentGroups.filter((g) => g.id !== trollGroupId && g.id !== sourceDissolveId);
+      return [...filtered, optimisticTrollGroup];
+    });
     setCards((currentCards) =>
-      currentCards.map((currentCard) =>
-        currentCard.id === card.id ? { ...currentCard, group_id: trollGroupId, position } : currentCard
-      )
+      currentCards.map((currentCard) => {
+        if (currentCard.id === card.id) return { ...currentCard, group_id: trollGroupId, position };
+        if (sourceRemainingCard && currentCard.id === sourceRemainingCard.id) return { ...currentCard, group_id: null };
+        return currentCard;
+      })
     );
 
     const saved = await performMutation(async () => {
@@ -1227,21 +1277,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
           vote_count: 0
         });
 
-        if (insertError) {
-          throw insertError;
-        }
+        if (insertError) throw insertError;
       }
 
-      const { error: updateError } = await client
-        .from("cards")
-        .update({
-          group_id: trollGroupId,
-          position
-        })
-        .eq("id", card.id);
+      const { error: updateError } = await client.from("cards").update({ group_id: trollGroupId, position }).eq("id", card.id);
+      if (updateError) throw updateError;
 
-      if (updateError) {
-        throw updateError;
+      if (sourceRemainingCard) {
+        const { error: siblingError } = await client.from("cards").update({ group_id: null }).eq("id", sourceRemainingCard.id);
+        if (siblingError) throw siblingError;
+      }
+
+      if (sourceDissolveId) {
+        const { error: deleteError } = await client.from("card_groups").delete().eq("id", sourceDissolveId);
+        if (deleteError) throw deleteError;
       }
     }, "Troll move failed", { reload: false });
 
@@ -1259,29 +1308,42 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const client = supabase;
     const position = nextPosition();
     const previousCards = cards;
+    const previousGroups = cardGroups;
+    const { singleRemainingCard, dissolveGroupId } = getSourceGroupDissolve(card.id, card.group_id, cards);
+
     setCards((currentCards) =>
-      currentCards.map((currentCard) =>
-        currentCard.id === card.id ? { ...currentCard, column_id: columnId, group_id: null, position } : currentCard
-      )
+      currentCards.map((currentCard) => {
+        if (currentCard.id === card.id) return { ...currentCard, column_id: columnId, group_id: null, position };
+        if (singleRemainingCard && currentCard.id === singleRemainingCard.id) return { ...currentCard, group_id: null };
+        return currentCard;
+      })
     );
+    if (dissolveGroupId) {
+      setCardGroups((currentGroups) => currentGroups.filter((g) => g.id !== dissolveGroupId));
+    }
 
     const saved = await performMutation(async () => {
       const { error: updateError } = await client
         .from("cards")
-        .update({
-          column_id: columnId,
-          group_id: null,
-          position
-        })
+        .update({ column_id: columnId, group_id: null, position })
         .eq("id", card.id);
 
-      if (updateError) {
-        throw updateError;
+      if (updateError) throw updateError;
+
+      if (singleRemainingCard) {
+        const { error: siblingError } = await client.from("cards").update({ group_id: null }).eq("id", singleRemainingCard.id);
+        if (siblingError) throw siblingError;
+      }
+
+      if (dissolveGroupId) {
+        const { error: deleteError } = await client.from("card_groups").delete().eq("id", dissolveGroupId);
+        if (deleteError) throw deleteError;
       }
     }, "Card move failed");
 
     if (!saved) {
       setCards(previousCards);
+      setCardGroups(previousGroups);
     }
   }
 
@@ -1421,26 +1483,38 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const client = supabase;
     const position = nextPosition();
     const previousCards = cards;
+    const previousGroups = cardGroups;
+    const { singleRemainingCard, dissolveGroupId } = getSourceGroupDissolve(card.id, card.group_id, cards);
+
     setCards((currentCards) =>
-      currentCards.map((currentCard) => (currentCard.id === card.id ? { ...currentCard, group_id: null, position } : currentCard))
+      currentCards.map((currentCard) => {
+        if (currentCard.id === card.id) return { ...currentCard, group_id: null, position };
+        if (singleRemainingCard && currentCard.id === singleRemainingCard.id) return { ...currentCard, group_id: null };
+        return currentCard;
+      })
     );
+    if (dissolveGroupId) {
+      setCardGroups((currentGroups) => currentGroups.filter((g) => g.id !== dissolveGroupId));
+    }
 
     const saved = await performMutation(async () => {
-      const { error: updateError } = await client
-        .from("cards")
-        .update({
-          group_id: null,
-          position
-        })
-        .eq("id", card.id);
+      const { error: updateError } = await client.from("cards").update({ group_id: null, position }).eq("id", card.id);
+      if (updateError) throw updateError;
 
-      if (updateError) {
-        throw updateError;
+      if (singleRemainingCard) {
+        const { error: siblingError } = await client.from("cards").update({ group_id: null }).eq("id", singleRemainingCard.id);
+        if (siblingError) throw siblingError;
+      }
+
+      if (dissolveGroupId) {
+        const { error: deleteError } = await client.from("card_groups").delete().eq("id", dissolveGroupId);
+        if (deleteError) throw deleteError;
       }
     }, "Card ungroup failed");
 
     if (!saved) {
       setCards(previousCards);
+      setCardGroups(previousGroups);
     }
   }
 
