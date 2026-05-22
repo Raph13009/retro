@@ -105,6 +105,12 @@ export function GroupColumn({
           <textarea
             value={content}
             onChange={(event) => setContent(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !isSubmitting) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
             placeholder={`Add a ${column.title.toLowerCase()} reflection...`}
             rows={3}
             className="w-full resize-none rounded-2xl bg-transparent px-2 py-2 text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400"

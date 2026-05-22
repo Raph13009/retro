@@ -138,6 +138,12 @@ export function RetroColumn({
         <textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey && !isSubmitting) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
           placeholder="Add a thought..."
           rows={3}
           className="w-full resize-none rounded-xl border-0 bg-transparent px-2 py-2 text-sm text-slate-700 outline-none placeholder:text-slate-400"

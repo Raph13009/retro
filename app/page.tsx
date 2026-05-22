@@ -5,24 +5,11 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { ImageTrail } from "@/components/retro/ImageTrail";
+import { trailImages } from "@/lib/retro/trail-images";
 import { DEFAULT_COLUMNS } from "@/lib/retro/types";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 import { setFacilitatorClaim } from "@/lib/retro/facilitator-claim";
 import { cn, randomRoomSlug } from "@/lib/utils";
-
-const homeTrailImages = [
-  "/gab.png",
-  "/Screenshot%202026-05-11%20at%2017.26.34.png",
-  "/Screenshot%202026-05-11%20at%2017.26.49.png",
-  "/Screenshot%202026-05-11%20at%2017.27.02.png",
-  "/Screenshot%202026-05-11%20at%2017.27.17.png",
-  "/Screenshot%202026-05-11%20at%2017.27.38.png",
-  "/Screenshot%202026-05-11%20at%2017.27.50.png",
-  "/Screenshot%202026-05-11%20at%2017.28.03.png",
-  "/Screenshot%202026-05-11%20at%2017.28.32.png",
-  "/Screenshot%202026-05-11%20at%2017.28.41.png",
-  "/Screenshot%202026-05-11%20at%2017.37.12.png"
-];
 
 export default function HomePage() {
   const router = useRouter();
@@ -97,7 +84,7 @@ export default function HomePage() {
         "lg:flex lg:min-h-dvh lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:px-10 lg:py-0 xl:px-14"
       )}
     >
-      <ImageTrail items={homeTrailImages} variant={5} />
+      <ImageTrail items={trailImages} variant={5} />
       <section
         className={cn(
           "relative z-10 mx-auto w-full flex-1",
