@@ -216,7 +216,7 @@ function buildMarkdownSummary({
   reactions: Reaction[];
   actionItems: ActionItem[];
 }) {
-  const lines = [`# Retro action items - ${room.name}`, "", `Date: ${new Date().toLocaleDateString()}`, `Participants: ${participants.map((participant) => participant.name).join(", ") || "None"}`, "", "## Actions", ""];
+  const lines = [`# paraboll.online action items - ${room.name}`, "", `Date: ${new Date().toLocaleDateString()}`, `Participants: ${participants.map((participant) => participant.name).join(", ") || "None"}`, "", "## Actions", ""];
 
   if (actionItems.length === 0) {
     lines.push("No action items were created.");

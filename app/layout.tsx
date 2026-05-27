@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AppBackground } from "@/components/retro/AppBackground";
+import { PRODUCT_NAME, SITE_URL } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,15 +14,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Retro",
-  description: "A realtime retrospective meeting board for agile teams.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${PRODUCT_NAME} — Agile retrospective tool`,
+    template: `%s | ${PRODUCT_NAME}`
+  },
+  description: "Free realtime sprint retrospective board for agile, Scrum, and remote teams.",
+  applicationName: PRODUCT_NAME,
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon.png", type: "image/png" }
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" }
     ],
-    apple: "/apple-touch-icon.png"
-  }
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    other: [
+      { rel: "icon", url: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+      { rel: "icon", url: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png" }
+    ]
+  },
+  manifest: "/site.webmanifest"
 };
 
 export default function RootLayout({
@@ -33,7 +44,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <AppBackground />
         {children}
       </body>
     </html>

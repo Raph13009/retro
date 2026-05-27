@@ -1,0 +1,113 @@
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes column-settle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+@keyframes presence-idle {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(3px, -2px);
+    opacity: 0.9;
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.glowPulse {
+  animation: glow-pulse 8s ease-in-out infinite;
+}
+
+.cardRise {
+  animation: card-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.cardBreathe {
+  animation: card-breathe 9s ease-in-out infinite;
+}
+
+.columnSettle {
+  animation: column-settle 11s ease-in-out infinite;
+}
+
+.columnSettleDelay1 {
+  animation-delay: -2.5s;
+}
+
+.columnSettleDelay2 {
+  animation-delay: -5s;
+}
+
+.presenceDot {
+  animation: presence-idle 7s ease-in-out infinite;
+}
+
+.presenceDelay1 {
+  animation-delay: -1.8s;
+}
+
+.presenceDelay2 {
+  animation-delay: -3.6s;
+}
+
+.livePulse {
+  animation: live-pulse 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glowPulse,
+  .cardRise,
+  .cardBreathe,
+  .columnSettle,
+  .presenceDot,
+  .livePulse {
+    animation: none;
+  }
+}
