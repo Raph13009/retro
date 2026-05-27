@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { MeetingPhase, Participant, PresenceParticipant, Room } from "@/lib/retro/types";
+import type { MeetingPhase, Participant, PresenceParticipant, Room, Vote } from "@/lib/retro/types";
+import { getVoteLimit } from "@/lib/retro/types";
 import { BottomMeetingBar } from "@/components/retro/BottomMeetingBar";
 import { PhaseHeader } from "@/components/retro/PhaseHeader";
 import { RealtimeCursors } from "@/components/retro/RealtimeCursors";
@@ -28,6 +29,7 @@ type RetroLayoutProps = {
   onOpenSupport: () => void;
   onExitHome: () => void;
   onLiveCursorsToggle: () => void;
+  votes?: Vote[];
   children: ReactNode;
 };
 
@@ -50,6 +52,7 @@ export function RetroLayout({
   onOpenSupport,
   onExitHome,
   onLiveCursorsToggle,
+  votes = [],
   children
 }: RetroLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -107,6 +110,9 @@ export function RetroLayout({
               roomCreatedAt={room.created_at}
               participants={participants}
               onlineParticipants={onlineParticipants}
+              votes={votes}
+              voteLimit={getVoteLimit(room)}
+              currentParticipantId={participant.id}
             />
           </div>
           <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden bg-transparent">{children}</div>

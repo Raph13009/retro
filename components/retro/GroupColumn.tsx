@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { ChevronDown, Ungroup } from "lucide-react";
+import { ChevronDown, Pencil, Trash2, Ungroup } from "lucide-react";
 import { CardVotingControls } from "@/components/retro/CardVotingControls";
 import { CardGroup } from "@/components/retro/CardGroup";
 import { HiddenReflectionMeta, HiddenReflectionSkeleton, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
@@ -20,6 +20,8 @@ type GroupColumnProps = {
   voteLimit: number;
   maxVoteCount: number;
   onAddCard: (columnId: string, content: string) => Promise<boolean>;
+  onEditCard: (card: RetroCard) => void;
+  onDeleteCard: (card: RetroCard) => void;
   onRenameGroup: (group: CardGroupType) => void;
   onDeleteGroup: (group: CardGroupType) => void;
   onUngroupCard: (card: RetroCard) => void;
@@ -44,6 +46,8 @@ export function GroupColumn({
   voteLimit,
   maxVoteCount,
   onAddCard,
+  onEditCard,
+  onDeleteCard,
   onRenameGroup,
   onDeleteGroup,
   onUngroupCard,
@@ -162,6 +166,8 @@ export function GroupColumn({
                 currentParticipantId={currentParticipantId}
                 voteLimit={voteLimit}
                 topVoted={phase === "vote" && maxVoteCount > 0 && card.vote_count === maxVoteCount}
+                onEditCard={onEditCard}
+                onDeleteCard={onDeleteCard}
                 onVoteCard={onVoteCard}
                 onReact={onReact}
               />
@@ -187,6 +193,8 @@ function UngroupedCard({
   currentParticipantId,
   voteLimit,
   topVoted,
+  onEditCard,
+  onDeleteCard,
   onVoteCard,
   onReact
 }: {
@@ -198,12 +206,15 @@ function UngroupedCard({
   currentParticipantId: string;
   voteLimit: number;
   topVoted: boolean;
+  onEditCard: (card: RetroCard) => void;
+  onDeleteCard: (card: RetroCard) => void;
   onVoteCard: (card: RetroCard) => void;
   onReact: (card: RetroCard, emoji: string) => void;
 }) {
   const { attributes, listeners, setNodeRef: setDraggableNodeRef, isDragging } = useDraggable({ id: `card:${card.id}` });
   const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({ id: `card-drop:${card.id}` });
   const hiddenReflection = shouldHideReflectionContent(phase, card.author_participant_id, currentParticipantId);
+  const canEditOwnCard = phase === "reflect" && card.author_participant_id === currentParticipantId && !hiddenReflection;
 
   function setNodeRef(node: HTMLElement | null) {
     setDraggableNodeRef(node);
@@ -238,9 +249,33 @@ function UngroupedCard({
             </span>
           </div>
         )}
-        {phase !== "vote" ? (
-          <Ungroup className="h-3.5 w-3.5 text-slate-300" />
-        ) : null}
+        <div className="flex items-center gap-1">
+          {canEditOwnCard ? (
+            <>
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => onEditCard(card)}
+                className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-slate-200"
+                aria-label="Edit card"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => onDeleteCard(card)}
+                className="rounded-full bg-slate-100 p-1.5 text-slate-500 hover:bg-[#f8eeee] hover:text-[#b55252]"
+                aria-label="Delete card"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : null}
+          {phase !== "vote" ? (
+            <Ungroup className="h-3.5 w-3.5 text-slate-300" />
+          ) : null}
+        </div>
       </div>
       {!hiddenReflection ? (
         <CardVotingControls

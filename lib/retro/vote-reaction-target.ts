@@ -1,5 +1,17 @@
 import type { Reaction, Vote } from "@/lib/retro/types";
 
+export function getParticipantRemainingVotes(votes: Vote[], participantId: string, voteLimit: number) {
+  const usedVotes = votes.filter((vote) => vote.participant_id === participantId).length;
+  return Math.max(0, voteLimit - usedVotes);
+}
+
+export function getTeamRemainingVotes(votes: Vote[], participantIds: readonly string[], voteLimit: number) {
+  return participantIds.reduce(
+    (total, participantId) => total + getParticipantRemainingVotes(votes, participantId, voteLimit),
+    0
+  );
+}
+
 export function voteTargetsCard(vote: Vote, cardId: string) {
   return vote.card_id === cardId && vote.group_id == null;
 }

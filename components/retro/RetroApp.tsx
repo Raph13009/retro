@@ -903,7 +903,11 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function editCard(card: RetroCard) {
-    if (!supabase || !participant || card.author_participant_id !== participant.id) {
+    if (!supabase || !room || !participant || card.author_participant_id !== participant.id) {
+      return;
+    }
+
+    if (normalizePhase(room.current_phase) !== "reflect" || room.status !== "active") {
       return;
     }
 
@@ -926,7 +930,11 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function deleteCard(card: RetroCard) {
-    if (!supabase || !participant || card.author_participant_id !== participant.id) {
+    if (!supabase || !room || !participant || card.author_participant_id !== participant.id) {
+      return;
+    }
+
+    if (normalizePhase(room.current_phase) !== "reflect" || room.status !== "active") {
       return;
     }
 
@@ -2400,6 +2408,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       onOpenSupport={() => setSupportOpen(true)}
       onExitHome={() => router.push("/")}
       onLiveCursorsToggle={toggleLiveCursorsLocal}
+      votes={votes}
     >
       {room.timer_status === "ended" && currentPhase !== "discuss" ? (
         <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-[#c05f5f] px-4 py-2 text-sm font-medium text-white shadow-[0_14px_30px_-22px_rgba(192,95,95,0.54)]">
@@ -2467,6 +2476,8 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         currentParticipantId={participant.id}
         voteLimit={getVoteLimit(room)}
         onAddCard={addCard}
+        onEditCard={editCard}
+        onDeleteCard={deleteCard}
         onRenameGroup={renameGroup}
         onDeleteGroup={deleteGroup}
         onMoveCardToGroup={moveCardToGroup}

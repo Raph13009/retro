@@ -1,11 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { ArrowRight, Loader2, Sparkles } from "lucide-react";
-import { ImageTrail } from "@/components/retro/ImageTrail";
-import { trailImages } from "@/lib/retro/trail-images";
+import { Loader2, Sparkles } from "lucide-react";
 import { DEFAULT_COLUMNS } from "@/lib/retro/types";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 import { setFacilitatorClaim } from "@/lib/retro/facilitator-claim";
@@ -84,7 +81,6 @@ export default function HomePage() {
         "lg:flex lg:min-h-dvh lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:px-10 lg:py-0 xl:px-14"
       )}
     >
-      <ImageTrail items={trailImages} variant={5} />
       <section
         className={cn(
           "relative z-10 mx-auto w-full flex-1",
@@ -109,13 +105,6 @@ export default function HomePage() {
             <p className="mt-5 max-w-xl text-pretty text-lg leading-8 text-slate-300 sm:mt-6">
               Create rooms, group cards, vote together and actually move forward.
             </p>
-            <Link
-              href="/ongoing"
-              className="ghost-button mt-7 inline-flex w-fit items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold sm:mt-8"
-            >
-              Join ongoing retro
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
 
           <div className="liquid-panel rounded-[1.75rem] p-5 shadow-[0_28px_90px_-48px_rgba(0,0,0,0.35)] sm:rounded-[2rem] sm:p-6 lg:shadow-[0_32px_100px_-50px_rgba(49,46,78,0.22)]">
