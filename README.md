@@ -113,6 +113,14 @@ supabase/
 
 ---
 
+## Deployment
+
+Production DNS, Cloudflare, SSL, and Vercel setup:
+
+- [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
+
+---
+
 ## Local Development
 
 ### 1) Install dependencies
