@@ -14,6 +14,7 @@ import {
   WHY_TEAMS_LOVE
 } from "@/lib/marketing/content";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { SupportCoffeeTrigger } from "@/components/marketing/SupportCoffeeTrigger";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +88,7 @@ export function MarketingHome() {
                 Contribute on GitHub
               </span>
             </a>
+            <SupportCoffeeTrigger variant="header" />
             <a
               href="#templates"
               className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-[#3f5f4e] transition hover:bg-white/70 hover:text-[#2f7a57] sm:inline"
@@ -197,6 +199,30 @@ export function MarketingHome() {
               </li>
             ))}
           </ol>
+        </section>
+
+        {/* SUPPORT */}
+        <section className="relative border-y border-[#B7F0D1]/35 bg-[#2f3c34]" aria-labelledby="support-heading">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-85"
+            aria-hidden
+            style={{
+              background:
+                "radial-gradient(ellipse 70% 55% at 10% 22%, rgba(143, 231, 225, 0.22), transparent 60%), radial-gradient(ellipse 65% 50% at 88% 78%, rgba(255, 191, 168, 0.2), transparent 60%)"
+            }}
+          />
+          <div className="relative mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 lg:py-16">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#B7F0D1]">Support</p>
+              <h2 id="support-heading" className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                Keep paraboll online and shipping <span aria-hidden>☕</span>
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-7 text-[#e9f7ef]">
+                Love the product? Support development with a coffee and help us ship more features, faster.
+              </p>
+            </div>
+            <SupportCoffeeTrigger variant="section" className="shrink-0" />
+          </div>
         </section>
 
         {/* SEO ARTICLES */}
