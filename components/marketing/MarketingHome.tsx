@@ -89,12 +89,18 @@ export function MarketingHome() {
               </span>
             </a>
             <SupportCoffeeTrigger variant="header" />
-            <a
-              href="#templates"
+            <Link
+              href="/templates"
               className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-[#3f5f4e] transition hover:bg-white/70 hover:text-[#2f7a57] sm:inline"
             >
               Templates
-            </a>
+            </Link>
+            <Link
+              href="/blog"
+              className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-[#3f5f4e] transition hover:bg-white/70 hover:text-[#2f7a57] md:inline"
+            >
+              Guides
+            </Link>
             <a
               href="#faq"
               className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-[#3f5f4e] transition hover:bg-white/70 hover:text-[#2f7a57] md:inline"
@@ -484,9 +490,12 @@ export function MarketingHome() {
               <Link href="/retro" className="hover:text-[#3f7463]">
                 Start free retro
               </Link>
-              <a href="#templates" className="hover:text-[#3f7463]">
+              <Link href="/templates" className="hover:text-[#3f7463]">
                 Templates
-              </a>
+              </Link>
+              <Link href="/blog" className="hover:text-[#3f7463]">
+                Guides
+              </Link>
               <a href="#faq" className="hover:text-[#3f7463]">
                 FAQ
               </a>

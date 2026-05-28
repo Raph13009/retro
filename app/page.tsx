@@ -21,6 +21,15 @@ export const metadata: Metadata = {
     "start stop continue",
     "retro meeting",
     "best retrospective tool",
+    "retro tool",
+    "free retro board",
+    "no signup retrospective",
+    "sprint retro tool",
+    "agile retro",
+    "retrospective app",
+    "retro app free",
+    "EasyRetro alternative",
+    "Parabol alternative",
     "paraboll"
   ],
   alternates: {
@@ -77,6 +86,18 @@ const jsonLd = {
       },
       description:
         "Free sprint retrospective tool with realtime collaboration, voting, reactions, grouping, and action items for remote agile teams."
+    },
+    {
+      "@type": "Organization",
+      name: PRODUCT_NAME,
+      url: SITE_URL,
+      description: "Free online sprint retrospective tool for agile, Scrum, and remote teams. No signup required.",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+        description: "Free forever — unlimited retrospectives, unlimited participants, no credit card."
+      }
     },
     {
       "@type": "FAQPage",
