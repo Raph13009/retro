@@ -1,52 +1,97 @@
 # paraboll.online
 
 <p align="center">
-  <b>Realtime retrospectives for modern product teams.</b><br/>
-  Built with Next.js, TypeScript, Tailwind, Supabase, and Supabase Realtime.
+  <img src="./public/brand/newLogo2.png" alt="paraboll.online logo" width="132" />
 </p>
 
 <p align="center">
-  <a href="https://paraboll.online"><img alt="Live Site" src="https://img.shields.io/badge/live-paraboll.online-8FE7E1?style=for-the-badge" /></a>
-  <img alt="Stack" src="https://img.shields.io/badge/stack-next.js%20%7C%20supabase%20%7C%20typescript-B7F0D1?style=for-the-badge" />
-  <img alt="Status" src="https://img.shields.io/badge/status-active%20development-FFD9C7?style=for-the-badge" />
+  <b>Realtime retrospectives for modern product teams.</b><br />
+  Calm UX, fast facilitation loops, and instant collaboration.
+</p>
+
+<p align="center">
+  <a href="https://paraboll.online"><img alt="Live Site" src="https://img.shields.io/badge/live-paraboll.online-8FE7E1?style=for-the-badge&logo=vercel&logoColor=1a1828" /></a>
+  <img alt="Framework" src="https://img.shields.io/badge/framework-Next.js-111111?style=for-the-badge&logo=nextdotjs&logoColor=white" />
+  <img alt="Language" src="https://img.shields.io/badge/language-TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img alt="Database" src="https://img.shields.io/badge/backend-Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=0b1f14" />
+  <img alt="Realtime" src="https://img.shields.io/badge/realtime-on-FFBFA8?style=for-the-badge" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/Raph13009/retro">Contribute on GitHub</a>
 </p>
 
 ---
 
-## What this project is
+## TL;DR
 
-`paraboll.online` is a realtime retro board focused on speed, clarity, and team flow.
+`paraboll.online` is a realtime retrospective board built for speed and clarity:
 
-It is designed for teams that want:
-- zero-friction room creation,
-- fast collaborative reflection,
-- structured voting and discussion,
-- clear action items before the meeting ends.
+- create a room in seconds,
+- run structured retro phases,
+- vote and prioritize together,
+- leave with actionable follow-ups.
 
----
-
-## Core capabilities
-
-- **Instant rooms**: create and share a retro room link in seconds.
-- **Realtime collaboration**: participants, cards, votes, reactions, comments, and action items sync live.
-- **Facilitated flow**: reflection, grouping, voting, and discussion phases.
-- **Private writing mode**: optional hidden reflection cards before reveal.
-- **Timer control**: facilitator-managed pacing.
-- **Summary/export**: markdown-ready retro output.
+No heavy setup. No account wall for MVP flow. Just a link and a team.
 
 ---
 
-## Architecture snapshot
+## Product Highlights
+
+### Live collaborative board
+- realtime participants, cards, votes, comments, reactions, and action items
+- instant board updates via Supabase Realtime
+
+### Facilitator-first flow
+- phase-based retro lifecycle (reflect -> group -> vote -> discuss)
+- creator-controlled timer and vote limits
+- “private writing” mode to reduce anchoring bias
+
+### Actionable output
+- discussion + prioritization in one canvas
+- exportable markdown summary at the end
+
+---
+
+## Screens / Brand
+
+> Add screenshots in this section as the product evolves.
+
+<p>
+  <img src="./public/brand/newLogo2.png" alt="Brand mark" width="96" />
+</p>
+
+Brand and UI reference:
+- `.claude/BRAND_AND_UI_GUIDE.md`
+
+---
+
+## Tech Stack
+
+- **Frontend**: Next.js (App Router), React, TypeScript
+- **Styling**: Tailwind CSS
+- **Backend**: Supabase (Postgres + Realtime)
+- **State / UX**: client-side state + realtime subscriptions
+- **Deployment target**: Vercel-compatible
+
+---
+
+## Repository Structure
 
 ```txt
 app/
   (tool)/
+    layout.tsx
     retro/
+      page.tsx
+      layout.tsx
     room/[roomId]/
-  page.tsx
+      page.tsx
   layout.tsx
+  page.tsx
   robots.ts
   sitemap.ts
+  globals.css
 
 components/
   brand/
@@ -59,13 +104,16 @@ lib/
   retro/
   supabase/
 
+public/
+  brand/
+
 supabase/
   schema.sql
 ```
 
 ---
 
-## Local development
+## Local Development
 
 ### 1) Install dependencies
 
@@ -73,15 +121,15 @@ supabase/
 npm install
 ```
 
-### 2) Provision Supabase schema
+### 2) Provision database
 
-Create a Supabase project, open SQL editor, and execute:
+Create a Supabase project and run:
 
 ```sql
 -- paste supabase/schema.sql
 ```
 
-### 3) Configure environment
+### 3) Configure environment variables
 
 ```bash
 cp .env.example .env.local
@@ -94,17 +142,17 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-### 4) Run the app
+### 4) Start dev server
 
 ```bash
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Open: `http://localhost:3000`
 
 ---
 
-## Product + SEO routes
+## Routes
 
 - Home: `/`
 - App entry: `/retro`
@@ -114,24 +162,59 @@ Then open `http://localhost:3000`.
 
 ---
 
-## Collaboration
+## Realtime Model (High Level)
 
-Contributions are welcome.
+```txt
+Browser Clients
+   |
+   | Supabase JS client
+   v
+Supabase Realtime Channels
+   |
+   v
+Postgres (rooms, participants, cards, votes, comments, reactions, action_items)
+```
 
-If you want to improve the codebase, feel free to:
-- propose features,
-- suggest UX or copy improvements,
-- submit bug fixes,
-- refactor internals for maintainability/performance.
-
-Open an issue or PR here:
-
-**https://github.com/Raph13009/retro**
+All active clients subscribe to relevant room entities and render updates immediately.
 
 ---
 
-## Security note
+## Contribution Guide
 
-Current MVP behavior is intentionally no-login and link-accessible.
-RLS is enabled, but policies are permissive by design for fast collaborative onboarding.
-For production-hardening, add auth, membership checks, and stricter table-level policies.
+Community contributions are welcome and encouraged.
+
+You can contribute by:
+- proposing new templates,
+- improving UX and accessibility,
+- hardening Supabase policies,
+- adding tests and quality tooling,
+- improving docs or onboarding.
+
+### Suggested PR scope
+
+- Keep PRs focused and reviewable.
+- Include intent + behavior changes in the PR description.
+- Attach before/after screenshots for UI changes when possible.
+
+Repository:
+- https://github.com/Raph13009/retro
+
+---
+
+## Security / Production Notes
+
+Current MVP behavior is intentionally link-accessible and no-login for speed.
+
+RLS is enabled but permissive by design for anonymous collaboration.
+Before production hardening, add:
+- authenticated users,
+- room membership checks,
+- stricter per-table policies,
+- audit/observability around writes.
+
+---
+
+## License
+
+No explicit license file is currently included.
+If you plan to accept wider external contributions, add a LICENSE (MIT/Apache-2.0/etc.) to clarify usage terms.
