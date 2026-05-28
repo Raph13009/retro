@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { MarketingSiteFooter } from "@/components/marketing/MarketingSiteFooter";
 import { LEGAL_OPERATOR } from "@/lib/legal/contact";
 import { LegalOperatorNotice } from "@/components/marketing/LegalOperatorNotice";
 
@@ -11,11 +12,11 @@ type LegalPageLayoutProps = {
 
 export function LegalPageLayout({ title, description, children }: LegalPageLayoutProps) {
   return (
-    <div className="min-h-dvh bg-[#F5F2E8] text-[#1a1828]">
+    <div className="fixed inset-0 overflow-x-hidden overflow-y-auto bg-[#F5F2E8] text-[#1a1828]">
       <header className="sticky top-0 z-50 border-b border-[#B7F0D1]/70 bg-[#F5F2E8]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <BrandLogo href="/" theme="light" priority />
-          <nav className="flex items-center gap-4 text-sm font-semibold text-[#3f5f4e]">
+          <nav className="flex flex-wrap items-center justify-end gap-3 text-sm font-semibold text-[#3f5f4e] sm:gap-4">
             <Link href="/" className="hover:text-[#3f7463]">
               Home
             </Link>
@@ -52,19 +53,7 @@ export function LegalPageLayout({ title, description, children }: LegalPageLayou
         </div>
       </main>
 
-      <footer className="border-t border-[#B7F0D1]/70 bg-white/60 py-8">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-4 text-center text-sm text-[#3f5f4e]">
-          <Link href="/privacy" className="hover:text-[#3f7463]">
-            Privacy Policy
-          </Link>
-          <Link href="/terms" className="hover:text-[#3f7463]">
-            Terms of Service
-          </Link>
-          <Link href="/security" className="hover:text-[#3f7463]">
-            Security FAQs
-          </Link>
-        </div>
-      </footer>
+      <MarketingSiteFooter />
     </div>
   );
 }
