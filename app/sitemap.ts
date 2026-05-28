@@ -9,7 +9,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: SITE_URL, lastModified, changeFrequency: "weekly", priority: 1 },
     { url: `${SITE_URL}/retro`, lastModified, changeFrequency: "monthly", priority: 0.9 },
     { url: `${SITE_URL}/templates`, lastModified, changeFrequency: "monthly", priority: 0.85 },
-    { url: `${SITE_URL}/blog`, lastModified, changeFrequency: "monthly", priority: 0.8 }
+    { url: `${SITE_URL}/blog`, lastModified, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE_URL}/privacy`, lastModified, changeFrequency: "yearly", priority: 0.4 },
+    { url: `${SITE_URL}/terms`, lastModified, changeFrequency: "yearly", priority: 0.4 },
+    { url: `${SITE_URL}/security`, lastModified, changeFrequency: "yearly", priority: 0.4 }
   ];
 
   const blogPages: MetadataRoute.Sitemap = BLOG_ARTICLES.map((article) => ({

@@ -14,6 +14,7 @@ import {
   WHY_TEAMS_LOVE
 } from "@/lib/marketing/content";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { MarketingFooterLegalLinks } from "@/components/marketing/MarketingFooterLegalLinks";
 import { SupportCoffeeTrigger } from "@/components/marketing/SupportCoffeeTrigger";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
@@ -499,6 +500,7 @@ export function MarketingHome() {
               <a href="#faq" className="hover:text-[#3f7463]">
                 FAQ
               </a>
+              <MarketingFooterLegalLinks />
             </nav>
           </div>
           <p className="mt-8 border-t border-[#d7e9df]/60 pt-8 text-center text-sm text-[#3f5f4e] sm:text-left">

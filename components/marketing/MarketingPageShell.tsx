@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { MarketingFooterLegalLinks } from "@/components/marketing/MarketingFooterLegalLinks";
 import { SupportCoffeeTrigger } from "@/components/marketing/SupportCoffeeTrigger";
 
 function StartRetroLink() {
@@ -62,6 +63,7 @@ export function MarketingPageShell({ children }: { children: React.ReactNode }) 
               <Link href="/blog" className="hover:text-[#3f7463]">
                 Guides
               </Link>
+              <MarketingFooterLegalLinks />
             </nav>
           </div>
           <p className="mt-8 border-t border-[#d7e9df]/60 pt-8 text-center text-sm text-[#3f5f4e] sm:text-left">
