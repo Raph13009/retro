@@ -96,7 +96,7 @@ export default function HomePage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <div className="fixed inset-0 overflow-x-hidden overflow-y-auto bg-[#f6f3ed] text-[#1a1828]">
+      <div className="fixed inset-0 overflow-x-hidden overflow-y-auto bg-[#F5F2E8] text-[#1a1828]">
         <MarketingHome />
       </div>
     </>

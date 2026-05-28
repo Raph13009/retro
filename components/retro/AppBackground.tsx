@@ -6,9 +6,9 @@ export function AppBackground() {
   return (
     <div aria-hidden="true" className="app-background">
       <Grainient
-        color1="#FF9FFC"
-        color2="#5227FF"
-        color3="#B497CF"
+        color1="#67D4CD"
+        color2="#8EDFB9"
+        color3="#FFC3AF"
         timeSpeed={0.65}
         colorBalance={0}
         warpStrength={1}
@@ -22,9 +22,9 @@ export function AppBackground() {
         grainAmount={0.1}
         grainScale={2}
         grainAnimated={false}
-        contrast={1.5}
+        contrast={1.35}
         gamma={1}
-        saturation={1}
+        saturation={0.95}
         centerX={0}
         centerY={0}
         zoom={0.9}

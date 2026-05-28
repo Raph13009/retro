@@ -20,7 +20,7 @@ type PreviewColumn = {
 const SHOWCASE_COLUMNS: PreviewColumn[] = [
   {
     title: "Start",
-    dot: "bg-emerald-400/90",
+    dot: "bg-[#8FE7E1]",
     cards: [
       { text: "Improve PR reviews", votes: 4 },
       { text: "Pair on blockers earlier" }
@@ -28,7 +28,7 @@ const SHOWCASE_COLUMNS: PreviewColumn[] = [
   },
   {
     title: "Stop",
-    dot: "bg-rose-400/90",
+    dot: "bg-[#FFBFA8]",
     cards: [
       { text: "Weekly sync too long", votes: 5 },
       { text: "Last-minute scope adds" }
@@ -36,7 +36,7 @@ const SHOWCASE_COLUMNS: PreviewColumn[] = [
   },
   {
     title: "Continue",
-    dot: "bg-amber-400/90",
+    dot: "bg-[#B7F0D1]",
     cards: [{ text: "Async demos worked well", votes: 2 }]
   }
 ];
@@ -46,7 +46,7 @@ function PreviewCard({ card, index }: { card: PreviewCard; index: number }) {
     <article
       className={cn(
         "relative rounded-[1.1rem] border border-white/90 bg-white/[0.97] px-4 py-3.5",
-        "shadow-[0_10px_32px_-20px_rgba(52,48,82,0.2)]",
+        "shadow-[0_10px_32px_-20px_rgba(143,231,225,0.45)]",
         card.breathe && styles.cardBreathe,
         styles.cardRise
       )}
@@ -54,7 +54,7 @@ function PreviewCard({ card, index }: { card: PreviewCard; index: number }) {
     >
       <p className="text-sm font-medium leading-snug tracking-[-0.01em] text-[#1a1828]">{card.text}</p>
       {card.votes != null ? (
-        <span className="absolute right-3.5 top-3.5 tabular-nums text-[10px] font-medium text-[#b8b2cc]">
+        <span className="absolute right-3.5 top-3.5 tabular-nums text-[10px] font-medium text-[#5f8a74]">
           {card.votes}
         </span>
       ) : null}
@@ -85,7 +85,7 @@ export function ProductPreview({ variant = "hero", className }: ProductPreviewPr
         aria-hidden
         style={{
           background:
-            "radial-gradient(ellipse at 50% 35%, rgba(124, 58, 237, 0.1), transparent 65%), radial-gradient(ellipse at 85% 75%, rgba(52, 48, 82, 0.06), transparent 55%)"
+            "radial-gradient(ellipse at 50% 35%, rgba(143, 231, 225, 0.45), transparent 65%), radial-gradient(ellipse at 85% 75%, rgba(183, 240, 209, 0.42), transparent 55%)"
         }}
       />
 
@@ -94,16 +94,16 @@ export function ProductPreview({ variant = "hero", className }: ProductPreviewPr
           className={cn(
             "relative overflow-hidden rounded-[1.75rem] border border-white/80",
             "bg-gradient-to-b from-white/75 to-white/50 p-4 sm:p-5",
-            "shadow-[0_48px_120px_-56px_rgba(52,48,82,0.32)] backdrop-blur-2xl"
+            "shadow-[0_48px_120px_-56px_rgba(143,231,225,0.55)] backdrop-blur-2xl"
           )}
           aria-label="Preview of the retrospective board"
         >
           <header className="mb-5 flex items-center justify-between gap-4 px-0.5">
-            <p className="text-xs font-medium tracking-tight text-[#9b94b8]">Sprint 24</p>
+            <p className="text-xs font-medium tracking-tight text-[#5f8a74]">Sprint 24</p>
             <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" aria-hidden />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#8FE7E1]" aria-hidden />
               <div className="flex gap-1">
-                {["#8c83ad", "#6d8f7a", "#7a6d8f"].map((color) => (
+                {["#8FE7E1", "#B7F0D1", "#FFBFA8"].map((color) => (
                   <span
                     key={color}
                     className="h-5 w-5 rounded-full border border-white/90 shadow-sm"
@@ -120,7 +120,7 @@ export function ProductPreview({ variant = "hero", className }: ProductPreviewPr
               <div key={column.title} className="min-w-0">
                 <div className="mb-3 flex items-center gap-2 px-0.5">
                   <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", column.dot)} aria-hidden />
-                  <h3 className="text-[11px] font-medium tracking-wide text-[#9b94b8]">{column.title}</h3>
+                  <h3 className="text-[11px] font-medium tracking-wide text-[#4b7d64]">{column.title}</h3>
                 </div>
                 <div className="space-y-2.5 sm:space-y-3">
                   {column.cards.map((card, cardIndex) => (
@@ -131,7 +131,7 @@ export function ProductPreview({ variant = "hero", className }: ProductPreviewPr
             ))}
           </div>
 
-          <p className="mt-5 border-t border-[#f0ecf8]/80 pt-4 text-center text-[11px] font-medium text-[#b8b2cc]">
+          <p className="mt-5 border-t border-[#B7F0D1]/80 pt-4 text-center text-[11px] font-medium text-[#5f8a74]">
             Votes · reactions · action items — one calm board
           </p>
         </div>

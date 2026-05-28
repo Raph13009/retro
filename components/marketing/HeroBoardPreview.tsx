@@ -5,18 +5,18 @@ import { cn } from "@/lib/utils";
 import styles from "./HeroBoardPreview.module.css";
 
 const COLUMNS = [
-  { title: "Start", dot: "bg-emerald-400/90", card: "Improve PR reviews", delay: 0 },
-  { title: "Stop", dot: "bg-rose-400/90", card: "Weekly sync too long", delay: 1 },
-  { title: "Continue", dot: "bg-amber-400/90", card: "Async demos worked well", delay: 2 }
+  { title: "Start", dot: "bg-[#8FE7E1]", card: "Improve PR reviews", delay: 0 },
+  { title: "Stop", dot: "bg-[#FFBFA8]", card: "Weekly sync too long", delay: 1 },
+  { title: "Continue", dot: "bg-[#B7F0D1]", card: "Async demos worked well", delay: 2 }
 ] as const;
 
 const PHASES = [
-  { label: "Reflect", progress: 18, tone: "text-[#6d668f] bg-[#f4f2f8]" },
-  { label: "Vote", progress: 58, tone: "text-[#5b4d8a] bg-[#ebe6f8]" },
-  { label: "Discuss", progress: 100, tone: "text-[#343052] bg-[#e8e4f4]" }
+  { label: "Reflect", progress: 18, tone: "text-[#3f7463] bg-[#B7F0D1]" },
+  { label: "Vote", progress: 58, tone: "text-[#6f7862] bg-[#FFD9C7]" },
+  { label: "Discuss", progress: 100, tone: "text-[#7a6a56] bg-[#FFBFA8]" }
 ] as const;
 
-const AVATARS = ["#8c83ad", "#6d8f7a", "#7a6d8f"];
+const AVATARS = ["#8FE7E1", "#B7F0D1", "#FFBFA8"];
 
 /** Choreographed hero board — premium SaaS motion, retro flow (not fintech KYC). */
 export function HeroBoardPreview() {
@@ -32,7 +32,7 @@ export function HeroBoardPreview() {
         id: index,
         left: `${12 + index * 8}%`,
         delay: `${index * 0.08}s`,
-        color: index % 2 === 0 ? "rgba(124, 58, 237, 0.45)" : "rgba(52, 48, 82, 0.25)",
+        color: index % 2 === 0 ? "rgba(143, 231, 225, 0.55)" : "rgba(255, 191, 168, 0.45)",
         size: index % 3 === 0 ? 3 : 2
       })),
     [loopKey]
@@ -103,7 +103,7 @@ export function HeroBoardPreview() {
         aria-hidden
         style={{
           background:
-            "radial-gradient(ellipse 70% 55% at 30% 20%, rgba(124, 58, 237, 0.12), transparent 60%), radial-gradient(ellipse 50% 45% at 80% 70%, rgba(15, 15, 20, 0.04), transparent 55%)"
+            "radial-gradient(ellipse 70% 55% at 30% 20%, rgba(143, 231, 225, 0.55), transparent 60%), radial-gradient(ellipse 50% 45% at 80% 70%, rgba(183, 240, 209, 0.45), transparent 55%)"
         }}
       />
 
@@ -112,7 +112,7 @@ export function HeroBoardPreview() {
           "pointer-events-none absolute -inset-8 rounded-[3rem] blur-3xl transition-opacity duration-1000",
           showBackdrop ? "opacity-60" : "opacity-0"
         )}
-        style={{ background: "radial-gradient(circle at 50% 40%, rgba(124, 58, 237, 0.14), transparent 65%)" }}
+        style={{ background: "radial-gradient(circle at 50% 40%, rgba(143, 231, 225, 0.58), transparent 65%)" }}
         aria-hidden
       />
 
@@ -127,8 +127,8 @@ export function HeroBoardPreview() {
       >
         <span
           className={cn(
-            "inline-flex items-center rounded-full border border-[#7c3aed]/25 bg-white/90 px-4 py-2 text-xs font-semibold text-[#5227ff]",
-            "shadow-[0_0_32px_-8px_rgba(124,58,237,0.45)] backdrop-blur-md",
+            "inline-flex items-center rounded-full border border-[#8FE7E1]/45 bg-white/92 px-4 py-2 text-xs font-semibold text-[#3f7463]",
+            "shadow-[0_0_32px_-8px_rgba(143,231,225,0.62)] backdrop-blur-md",
             !reducedMotion && showCta && !showBoard && styles.ctaIn
           )}
         >
@@ -162,14 +162,14 @@ export function HeroBoardPreview() {
               showProgress ? "opacity-100" : "opacity-0"
             )}
           >
-            <div className="mb-2 flex items-center justify-between text-[10px] font-medium tracking-wide text-[#b8b2cc]">
+            <div className="mb-2 flex items-center justify-between text-[10px] font-medium tracking-wide text-[#5f8a74]">
               <span>Sprint flow</span>
               <span className="tabular-nums">{phase.progress}%</span>
             </div>
             <div className="h-[3px] overflow-hidden rounded-full bg-[#f0ecf8]">
               <div
                 className={cn(
-                  "h-full rounded-full bg-gradient-to-r from-[#7c3aed] to-[#5227ff] transition-[width] duration-[1.15s]",
+                  "h-full rounded-full bg-gradient-to-r from-[#8FE7E1] via-[#B7F0D1] to-[#FFBFA8] transition-[width] duration-[1.15s]",
                   styles.easePremium
                 )}
                 style={{ width: showProgress ? `${phase.progress}%` : "0%" }}
@@ -185,7 +185,7 @@ export function HeroBoardPreview() {
             )}
           >
             <div className="flex items-center gap-2">
-              <p className="text-xs font-medium text-[#9b94b8]">Sprint 24</p>
+              <p className="text-xs font-medium text-[#4b7d64]">Sprint 24</p>
               <span
                 key={phase.label}
                 className={cn(
@@ -200,10 +200,7 @@ export function HeroBoardPreview() {
             </div>
             <div className="flex items-center gap-2">
               <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full bg-emerald-500/90 transition-opacity duration-500",
-                  showAvatars ? "opacity-100" : "opacity-0"
-                )}
+                className={cn("h-1.5 w-1.5 rounded-full bg-[#8FE7E1] transition-opacity duration-500", showAvatars ? "opacity-100" : "opacity-0")}
               />
               <div className="flex gap-1">
                 {AVATARS.map((color, index) => (
@@ -247,8 +244,8 @@ export function HeroBoardPreview() {
             />
             <defs>
               <linearGradient id="vote-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.15" />
-                <stop offset="100%" stopColor="#5227ff" stopOpacity="0.45" />
+                <stop offset="0%" stopColor="#8FE7E1" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="#FFBFA8" stopOpacity="0.45" />
               </linearGradient>
             </defs>
           </svg>
@@ -265,7 +262,7 @@ export function HeroBoardPreview() {
                   )}
                 >
                   <span className={cn("h-1.5 w-1.5 rounded-full", column.dot)} aria-hidden />
-                  <h3 className="text-[11px] font-medium tracking-wide text-[#9b94b8]">{column.title}</h3>
+                  <h3 className="text-[11px] font-medium tracking-wide text-[#4b7d64]">{column.title}</h3>
                 </div>
                 <article
                   className={cn(
@@ -285,7 +282,7 @@ export function HeroBoardPreview() {
                   {columnIndex === 0 && columnIndex < visibleCards ? (
                     <span
                       className={cn(
-                        "absolute right-3.5 top-3.5 tabular-nums text-[10px] font-medium text-[#b8b2cc] transition-all duration-500",
+                        "absolute right-3.5 top-3.5 tabular-nums text-[10px] font-medium text-[#5f8a74] transition-all duration-500",
                         styles.easePremium
                       )}
                     >
@@ -303,7 +300,7 @@ export function HeroBoardPreview() {
                 <span
                   key={left}
                   className={cn(
-                    "pointer-events-none absolute top-[42%] z-10 h-1.5 w-1.5 rounded-full bg-[#7c3aed]/70",
+                    "pointer-events-none absolute top-[42%] z-10 h-1.5 w-1.5 rounded-full bg-[#8FE7E1]/80",
                     !reducedMotion && styles.presenceIn
                   )}
                   style={{ left, animationDelay: `${index * 0.1}s` }}
@@ -333,7 +330,7 @@ export function HeroBoardPreview() {
                   className={!reducedMotion ? styles.checkDraw : undefined}
                 />
               </svg>
-              <p className="mt-3 text-sm font-semibold tracking-tight text-[#343052]">Team aligned</p>
+              <p className="mt-3 text-sm font-semibold tracking-tight text-[#1f5d40]">Team aligned</p>
             </div>
             {showSuccess && !reducedMotion
               ? confetti.map((particle) => (

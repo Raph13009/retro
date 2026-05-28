@@ -82,14 +82,14 @@ export default function RetroAppPage() {
         "relative w-full overflow-x-hidden text-slate-100",
         "min-h-dvh px-4 py-10 sm:px-6 sm:py-12",
         "max-lg:overflow-y-auto",
-        "lg:flex lg:min-h-dvh lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:px-10 lg:py-0 xl:px-14"
+        "lg:flex lg:min-h-dvh lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:px-10 lg:py-8 xl:px-14"
       )}
     >
-      <div className="relative z-10 mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div className="relative z-10 mb-8 pt-2 sm:pt-3 lg:pt-4 flex flex-wrap items-center justify-between gap-4">
         <BrandLogo href="/" theme="dark" priority />
         <Link
           href="/"
-          className="inline-flex w-fit items-center gap-2 rounded-2xl border border-white/10 bg-white/8 px-4 py-2 text-sm font-semibold text-slate-200 backdrop-blur-xl transition hover:bg-white/12"
+          className="inline-flex w-fit items-center gap-2 rounded-2xl border border-white/35 bg-white/22 px-4 py-2 text-sm font-semibold text-white shadow-[0_14px_30px_-22px_rgba(20,20,30,0.75)] backdrop-blur-xl transition hover:bg-white/28"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back to home
@@ -109,14 +109,21 @@ export default function RetroAppPage() {
           )}
         >
           <div className="flex min-w-0 flex-col lg:max-w-[34rem] xl:max-w-[36rem]">
-            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/8 py-1 pl-1 pr-3 text-sm text-slate-300 shadow-sm backdrop-blur-xl sm:mb-6">
-              <Image src={BRAND_ASSETS.icon} alt="" width={24} height={24} className="h-6 w-6 object-contain" aria-hidden />
+            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-white/35 bg-white/22 py-1 pl-1 pr-3 text-sm text-white shadow-[0_12px_28px_-20px_rgba(20,20,30,0.78)] backdrop-blur-xl sm:mb-6">
+              <Image
+                src={BRAND_ASSETS.icon}
+                alt=""
+                width={32}
+                height={32}
+                className="h-8 w-8 object-contain"
+                aria-hidden
+              />
               <span>Built between two Partner Squad tickets</span>
             </div>
             <h1 className="text-balance text-4xl font-semibold tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl xl:text-7xl">
               Finally a decent retro tool
             </h1>
-            <p className="mt-5 max-w-xl text-pretty text-lg leading-8 text-slate-300 sm:mt-6">
+            <p className="mt-5 max-w-xl text-pretty text-lg leading-8 text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.28)] sm:mt-6">
               Create rooms, group cards, vote together and actually move forward.
             </p>
           </div>

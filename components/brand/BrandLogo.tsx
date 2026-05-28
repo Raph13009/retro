@@ -13,11 +13,11 @@ type BrandLogoProps = {
   priority?: boolean;
 };
 
-function WordmarkText({ className }: { className?: string }) {
+function WordmarkText({ className, dark = false }: { className?: string; dark?: boolean }) {
   return (
     <span className={cn("text-lg font-bold tracking-tight sm:text-xl", className)}>
-      <span className="text-[#1a1828]">paraboll</span>
-      <span className="font-semibold text-[#6d668f]">.online</span>
+      <span className={dark ? "text-white" : "text-[#1a1828]"}>paraboll</span>
+      <span className={cn("font-semibold", dark ? "text-[#B7F0D1]" : "text-[#3f7463]")}>.online</span>
     </span>
   );
 }
@@ -40,7 +40,10 @@ export function BrandLogo({
       width={120}
       height={120}
       priority={priority}
-      className={cn("h-9 w-9 object-contain sm:h-10 sm:w-10", imageClassName)}
+      className={cn(
+        "h-11 w-11 object-contain sm:h-12 sm:w-12",
+        imageClassName
+      )}
       aria-hidden
     />
   );
@@ -53,7 +56,10 @@ export function BrandLogo({
         width={120}
         height={120}
         priority={priority}
-        className={cn("h-9 w-9 object-contain sm:h-10 sm:w-10", imageClassName)}
+        className={cn(
+          "h-11 w-11 object-contain sm:h-12 sm:w-12",
+          imageClassName
+        )}
       />
     ) : theme === "light" ? (
       <>
@@ -65,28 +71,11 @@ export function BrandLogo({
       </>
     ) : (
       <>
-        {compactOnMobile ? (
-          <Image
-            src={BRAND_ASSETS.icon}
-            alt={label}
-            width={120}
-            height={120}
-            priority={priority}
-            className={cn("h-9 w-9 object-contain sm:hidden", imageClassName)}
-          />
-        ) : null}
-        <Image
-          src={BRAND_ASSETS.wordmarkDark}
-          alt={label}
-          width={640}
-          height={160}
-          priority={priority}
-          className={cn(
-            "h-8 w-auto max-w-[min(100%,11.5rem)] object-contain object-left sm:h-9 sm:max-w-[14rem] lg:max-w-[16rem]",
-            compactOnMobile && "hidden sm:block",
-            imageClassName
-          )}
-        />
+        {compactOnMobile ? <span className="sm:hidden">{icon}</span> : null}
+        <span className={cn("inline-flex items-center gap-2.5", compactOnMobile && "hidden sm:inline-flex")}>
+          {icon}
+          <WordmarkText dark />
+        </span>
       </>
     );
 
@@ -94,7 +83,7 @@ export function BrandLogo({
     <Link
       href={href}
       className={cn(
-        "inline-flex shrink-0 items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8c83ad]",
+        "inline-flex shrink-0 items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8FE7E1]",
         className
       )}
       aria-label={`${label} home`}
