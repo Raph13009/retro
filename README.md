@@ -1,94 +1,137 @@
-# Retro
+# paraboll.online
 
-A realtime retrospective meeting MVP built with Next.js, TypeScript, Tailwind CSS, Supabase, and Supabase Realtime.
+<p align="center">
+  <b>Realtime retrospectives for modern product teams.</b><br/>
+  Built with Next.js, TypeScript, Tailwind, Supabase, and Supabase Realtime.
+</p>
 
-## Features
+<p align="center">
+  <a href="https://paraboll.online"><img alt="Live Site" src="https://img.shields.io/badge/live-paraboll.online-8FE7E1?style=for-the-badge" /></a>
+  <img alt="Stack" src="https://img.shields.io/badge/stack-next.js%20%7C%20supabase%20%7C%20typescript-B7F0D1?style=for-the-badge" />
+  <img alt="Status" src="https://img.shields.io/badge/status-active%20development-FFD9C7?style=for-the-badge" />
+</p>
 
-- Create shareable retrospective rooms.
-- Join rooms with a locally stored name and avatar color.
-- Realtime participants, columns, cards, votes, comments, reactions, and action items.
-- Shared creator-controlled timer.
-- Optional private writing mode with reveal.
-- Voting phase with per-participant vote limits.
-- Markdown export summary.
+---
 
-## Project Structure
+## What this project is
+
+`paraboll.online` is a realtime retro board focused on speed, clarity, and team flow.
+
+It is designed for teams that want:
+- zero-friction room creation,
+- fast collaborative reflection,
+- structured voting and discussion,
+- clear action items before the meeting ends.
+
+---
+
+## Core capabilities
+
+- **Instant rooms**: create and share a retro room link in seconds.
+- **Realtime collaboration**: participants, cards, votes, reactions, comments, and action items sync live.
+- **Facilitated flow**: reflection, grouping, voting, and discussion phases.
+- **Private writing mode**: optional hidden reflection cards before reveal.
+- **Timer control**: facilitator-managed pacing.
+- **Summary/export**: markdown-ready retro output.
+
+---
+
+## Architecture snapshot
 
 ```txt
 app/
+  (tool)/
+    retro/
+    room/[roomId]/
   page.tsx
-  room/[roomId]/page.tsx
   layout.tsx
-  globals.css
-components/retro/
-  ActionItemsPanel.tsx
-  CommentDrawer.tsx
-  ExportSummaryModal.tsx
-  ParticipantsBar.tsx
-  RetroApp.tsx
-  RetroBoard.tsx
-  RetroCard.tsx
-  RetroColumn.tsx
-  TimerControls.tsx
-  VotingPanel.tsx
-lib/
+  robots.ts
+  sitemap.ts
+
+components/
+  brand/
+  marketing/
   retro/
-    local-participant.ts
-    timer.ts
-    types.ts
-  supabase/client.ts
-  utils.ts
+
+lib/
+  brand.ts
+  marketing/
+  retro/
+  supabase/
+
 supabase/
   schema.sql
 ```
 
-## Local Setup
+---
 
-1. Install dependencies:
+## Local development
+
+### 1) Install dependencies
 
 ```bash
 npm install
 ```
 
-If `npm` is not installed on your Mac, use the bundled local helper instead:
+### 2) Provision Supabase schema
 
-```bash
-./scripts/npm-local.sh install
-```
-
-2. Create a Supabase project, open the SQL editor, and run:
+Create a Supabase project, open SQL editor, and execute:
 
 ```sql
--- paste the contents of supabase/schema.sql
+-- paste supabase/schema.sql
 ```
 
-3. Copy the environment template:
+### 3) Configure environment
 
 ```bash
 cp .env.example .env.local
 ```
 
-4. Add your project values to `.env.local`:
+Set:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-5. Start the app:
+### 4) Run the app
 
 ```bash
 npm run dev
 ```
 
-If `npm` is not installed globally:
+Then open `http://localhost:3000`.
 
-```bash
-./scripts/dev-local.sh
-```
+---
 
-Open `http://localhost:3000`.
+## Product + SEO routes
 
-## Notes
+- Home: `/`
+- App entry: `/retro`
+- Room: `/room/[roomId]`
+- Sitemap: `/sitemap.xml`
+- Robots: `/robots.txt`
 
-This MVP uses link-accessible rooms and local participant identity instead of user accounts. RLS is enabled on every table, but the included policies intentionally allow anon clients to read and write room data for a simple no-login MVP. For production, add authenticated users, membership checks, and stricter RLS policies.
+---
+
+## Collaboration
+
+Contributions are welcome.
+
+If you want to improve the codebase, feel free to:
+- propose features,
+- suggest UX or copy improvements,
+- submit bug fixes,
+- refactor internals for maintainability/performance.
+
+Open an issue or PR here:
+
+**https://github.com/Raph13009/retro**
+
+---
+
+## Security note
+
+Current MVP behavior is intentionally no-login and link-accessible.
+RLS is enabled, but policies are permissive by design for fast collaborative onboarding.
+For production-hardening, add auth, membership checks, and stricter table-level policies.

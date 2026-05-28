@@ -1,45 +1,49 @@
-# Paraboll Brand + UI Guide
+# Paraboll Brand & UI Guide
 
-This file is a quick reference for visual consistency.
+Single source of truth for visual consistency and product styling.
 
-## Current brand logo
+## Logo
 
 - Primary logo asset: `public/brand/newLogo2.png`
-- Avoid clipping or masking the logo into circles.
-- Preferred rendering: `object-contain`.
+- Keep logo uncropped and unmasked (no circular clipping).
+- Preferred rendering mode: `object-contain`.
+- Avoid decorative capsules around the logo in header/footer.
 
-## Core pastel palette
+## Official palette
 
-- `#8FE7E1` - Turquoise pastel
-- `#B7F0D1` - Mint doux
-- `#F5F2E8` - Creme tres clair
-- `#FFD9C7` - Peach / nude moderne
-- `#FFBFA8` - Saumon pastel
+- `#8FE7E1` - pastel turquoise
+- `#B7F0D1` - soft mint
+- `#F5F2E8` - light cream
+- `#FFD9C7` - peach nude
+- `#FFBFA8` - pastel salmon
 
-## Practical color mapping
+## Usage mapping
 
 - **Page background**: `#F5F2E8`
-- **Borders / separators**: mixes around `#B7F0D1`
-- **Primary accent gradients**: `#8FE7E1 -> #B7F0D1 -> #FFBFA8`
-- **Soft highlight surfaces**: `#FFD9C7` and `#FFBFA8` at low opacity
-- **Body text**: neutral dark (`#1a1828`) for readability
-- **Secondary text**: green-gray tones (`#3f5f4e`, `#3f7463`)
+- **Primary soft accents**: `#8FE7E1`, `#B7F0D1`
+- **Warm accent surfaces**: `#FFD9C7`, `#FFBFA8`
+- **Borders/separators**: mint-tinted neutrals around `#B7F0D1`
+- **Main text**: deep neutral (`#1a1828`)
+- **Secondary text**: muted green-neutrals (`#3f5f4e`, `#3f7463`)
 
-## CTA style (marketing pages)
+## CTA conventions (marketing pages)
 
-- Base fill near `#FFBFA8`
-- Hover near `#FFD9C7`
-- Dark readable text on top (not pure white)
-- Keep shadows subtle and soft
+- Base: `#FFBFA8`
+- Hover: `#FFD9C7`
+- Foreground: dark, high-contrast text (avoid pure white)
+- Shadows: soft and subtle, never heavy
 
-## Motion style
+## Motion conventions
 
-- Keep animations calm and premium.
-- Prefer fades, gentle translate, and soft blur reveals.
-- Avoid bouncy/cartoon motion.
+- Premium and calm by default.
+- Prefer opacity + translate + blur reveal combinations.
+- Avoid playful bounce or overly aggressive animations.
+- Keep collaboration motion subtle and intentional.
 
-## Logo wordmark text
+## Wordmark text colors
 
-- `paraboll`: neutral dark or white (depending on theme)
-- `.online`: palette-aware green tone (`#3f7463` light / `#B7F0D1` dark)
+- `paraboll`: dark (`light theme`) or white (`dark theme`)
+- `.online`: palette-aware highlight
+  - light theme: `#3f7463`
+  - dark theme: `#B7F0D1`
 
