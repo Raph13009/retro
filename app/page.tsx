@@ -91,13 +91,8 @@ const jsonLd = {
       "@type": "Organization",
       name: PRODUCT_NAME,
       url: SITE_URL,
-      description: "Free online sprint retrospective tool for agile, Scrum, and remote teams. No signup required.",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD",
-        description: "Free forever — unlimited retrospectives, unlimited participants, no credit card."
-      }
+      logo: `${SITE_URL}/brand/newLogo2.png`,
+      description: "Free online sprint retrospective tool for agile, Scrum, and remote teams. No signup required."
     },
     {
       "@type": "FAQPage",

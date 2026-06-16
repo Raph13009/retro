@@ -5,5 +5,5 @@ export const BRAND_ASSETS = {
   icon: "/brand/newLogo2.png",
   wordmarkLight: "/brand/newLogo2.png",
   wordmarkDark: "/brand/newLogo2.png",
-  ogImage: "/brand/newLogo2.png"
+  ogImage: "/api/og"
 } as const;
