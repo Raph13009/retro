@@ -157,6 +157,11 @@ create table if not exists public.action_items (
 create unique index if not exists action_items_card_id_uidx on public.action_items (card_id) where card_id is not null;
 create unique index if not exists action_items_group_id_uidx on public.action_items (group_id) where group_id is not null;
 
+create table if not exists public.keep_alive (
+  id bigint generated always as identity primary key,
+  pinged_at timestamptz not null default now()
+);
+
 create table if not exists public.support_tickets (
   id uuid primary key default gen_random_uuid(),
   room_id uuid references public.rooms(id) on delete set null,
@@ -436,6 +441,13 @@ drop policy if exists "action items are link accessible" on public.action_items;
 create policy "action items are link accessible" on public.action_items
   for all to anon, authenticated
   using (true)
+  with check (true);
+
+alter table public.keep_alive enable row level security;
+
+drop policy if exists "keep alive insert" on public.keep_alive;
+create policy "keep alive insert" on public.keep_alive
+  for insert to anon, authenticated
   with check (true);
 
 drop policy if exists "support tickets can be submitted" on public.support_tickets;
