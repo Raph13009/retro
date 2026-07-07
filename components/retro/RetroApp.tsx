@@ -803,6 +803,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       confirmLabel: "Stop and discuss",
       tone: "danger",
       onConfirm: async () => {
+        await snapshotOriginColumns();
         await updateRoom({
           current_phase: "discuss",
           cards_revealed: true,
@@ -830,11 +831,22 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     });
   }
 
+  async function snapshotOriginColumns() {
+    if (!supabase || !room) return;
+    const client = supabase;
+    const untagged = cards.filter((c) => !c.origin_column_id);
+    await Promise.all(
+      untagged.map((c) => client.from("cards").update({ origin_column_id: c.column_id }).eq("id", c.id))
+    );
+    setCards((prev) => prev.map((c) => (!c.origin_column_id ? { ...c, origin_column_id: c.column_id } : c)));
+  }
+
   async function confirmDiscuss() {
     if (!isCreator) {
       return false;
     }
 
+    await snapshotOriginColumns();
     return updateRoom({
       current_phase: "discuss",
       cards_revealed: true,
@@ -884,6 +896,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         .insert({
           room_id: roomId,
           column_id: columnId,
+          origin_column_id: columnId,
           author_participant_id: participantId,
           content,
           sort_order: position,
@@ -980,7 +993,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function createGroup(columnId: string, card?: RetroCard) {
-    if (!supabase || !room || !participant) {
+    if (!supabase || !room || !participant || currentPhase === "reflect") {
       return false;
     }
 
@@ -1051,7 +1064,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function groupCards(card: RetroCard, targetCard: RetroCard) {
-    if (!supabase || !room || !participant || card.id === targetCard.id) {
+    if (!supabase || !room || !participant || card.id === targetCard.id || currentPhase === "reflect") {
       return;
     }
 
@@ -1186,7 +1199,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function moveCardToGroup(card: RetroCard, group: CardGroup) {
-    if (!supabase || !room) {
+    if (!supabase || !room || currentPhase === "reflect") {
       return;
     }
 
@@ -2517,6 +2530,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         actionItems={actionItems}
         onClose={() => setShowSummary(false)}
         onFinish={async () => {
+          await snapshotOriginColumns();
           await updateRoom({
             current_phase: "discuss",
             status: "ended",

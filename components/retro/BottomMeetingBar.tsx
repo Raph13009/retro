@@ -361,7 +361,7 @@ function TimerPicker({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [draftMinutes, setDraftMinutes] = useState(Math.max(1, Math.round(room.timer_duration_seconds / 60)));
+  const [draftMinutes, setDraftMinutes] = useState<string>(String(Math.max(1, Math.round(room.timer_duration_seconds / 60))));
   const [isSaving, setIsSaving] = useState(false);
   const timerLabel = room.timer_status === "idle" ? formatTime(room.timer_duration_seconds) : formatTime(remainingSeconds);
   const waitingToStart = room.status === "waiting";
@@ -371,13 +371,15 @@ function TimerPicker({
 
   useEffect(() => {
     if (open) {
-      setDraftMinutes(Math.max(1, Math.round(room.timer_duration_seconds / 60)));
+      setDraftMinutes(String(Math.max(1, Math.round(room.timer_duration_seconds / 60))));
     }
   }, [open, room.timer_duration_seconds]);
 
   async function saveTimerDuration() {
     setIsSaving(true);
-    const didSave = await onSaveTimerDuration(draftMinutes * 60);
+    const parsed = parseInt(draftMinutes, 10);
+    const minutes = isNaN(parsed) || parsed < 1 ? 5 : Math.min(parsed, 60);
+    const didSave = await onSaveTimerDuration(minutes * 60);
     setIsSaving(false);
 
     if (didSave !== false) {
@@ -447,11 +449,19 @@ function TimerPicker({
           <label className="block">
             <span className="mb-1.5 block text-xs font-extrabold text-slate-500">Duration in minutes</span>
             <input
-              type="number"
-              min={1}
-              max={60}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={draftMinutes}
-              onChange={(event) => setDraftMinutes(Math.max(1, Math.min(60, Number(event.target.value) || 5)))}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "");
+                setDraftMinutes(val);
+              }}
+              onBlur={() => {
+                const parsed = parseInt(draftMinutes, 10);
+                const minutes = isNaN(parsed) || parsed < 1 ? 5 : Math.min(parsed, 60);
+                setDraftMinutes(String(minutes));
+              }}
               className="w-full rounded-2xl border border-[#ded8e8] bg-[#f7f5f0] px-3 py-2.5 text-sm font-extrabold text-slate-950 outline-none focus:border-[#8c83ad]"
             />
           </label>

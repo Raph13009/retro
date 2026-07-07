@@ -3,12 +3,13 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, GripVertical, Pencil, Plus, Ungroup } from "lucide-react";
 import { GroupInteractionBar } from "@/components/retro/GroupInteractionBar";
 import { HiddenReflectionMeta, HiddenReflectionSkeleton, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
-import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, Vote } from "@/lib/retro/types";
+import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
 type CardGroupProps = {
   group: CardGroupType;
   cards: RetroCard[];
+  columns: RetroColumn[];
   participants: Participant[];
   votes: Vote[];
   reactions: Reaction[];
@@ -26,6 +27,7 @@ type CardGroupProps = {
 export function CardGroup({
   group,
   cards,
+  columns,
   participants,
   votes,
   reactions,
@@ -118,6 +120,7 @@ export function CardGroup({
                 <GroupedCard
                   key={card.id}
                   card={card}
+                  columns={columns}
                   participant={participants.find((candidate) => candidate.id === card.author_participant_id)}
                   index={index}
                   phase={phase}
@@ -193,6 +196,7 @@ function StackPreview({ cards, phase, currentParticipantId }: { cards: RetroCard
 
 function GroupedCard({
   card,
+  columns,
   participant,
   index,
   phase,
@@ -200,6 +204,7 @@ function GroupedCard({
   onUngroupCard
 }: {
   card: RetroCard;
+  columns: RetroColumn[];
   participant?: Participant;
   index: number;
   phase: MeetingPhase;
@@ -243,6 +248,11 @@ function GroupedCard({
               {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
             </span>
             <span className="text-slate-500">{participant?.name ?? "Unknown"}</span>
+            {card.origin_column_id ? (
+              <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                {columns.find((c) => c.id === card.origin_column_id)?.title ?? ""}
+              </span>
+            ) : null}
           </div>
         )}
         <div className="flex items-center gap-1">
