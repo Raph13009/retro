@@ -232,7 +232,7 @@ function UngroupedCard({
       ref={setNodeRef}
       className={cn(
         "retro-card-surface rounded-2xl p-3",
-        !hiddenReflection && phase === "discuss" && "reflection-reveal",
+        !hiddenReflection && phase !== "reflect" && "reflection-reveal",
         topVoted && "ring-2 ring-amber-200 shadow-[0_18px_36px_-24px_rgba(180,120,40,0.32)]",
         isOver && "ring-2 ring-[#8c83ad] ring-offset-2 ring-offset-white",
         isDragging && "opacity-35"
@@ -253,7 +253,7 @@ function UngroupedCard({
             >
               {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
             </span>
-            {phase === "discuss" && card.origin_column_id ? (
+            {phase !== "reflect" && card.origin_column_id ? (
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">
                 {columns.find((c) => c.id === card.origin_column_id)?.title ?? ""}
               </span>

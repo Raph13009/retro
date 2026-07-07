@@ -24,11 +24,12 @@ type RetroLayoutProps = {
   onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
   onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
-  onConfirmDiscuss: () => void;
+  onAdvancePhase: () => void;
   onCloseRoom: () => void;
   onOpenSupport: () => void;
   onExitHome: () => void;
   onLiveCursorsToggle: () => void;
+  onOpenCarousel?: () => void;
   votes?: Vote[];
   children: ReactNode;
 };
@@ -47,11 +48,12 @@ export function RetroLayout({
   onSaveTimerDuration,
   onStartTimer,
   onStopTimer,
-  onConfirmDiscuss,
+  onAdvancePhase,
   onCloseRoom,
   onOpenSupport,
   onExitHome,
   onLiveCursorsToggle,
+  onOpenCarousel,
   votes = [],
   children
 }: RetroLayoutProps) {
@@ -129,8 +131,9 @@ export function RetroLayout({
               onSaveTimerDuration={onSaveTimerDuration}
               onStartTimer={onStartTimer}
               onStopTimer={onStopTimer}
-              onConfirmDiscuss={onConfirmDiscuss}
+              onAdvancePhase={onAdvancePhase}
               onCloseRoom={onCloseRoom}
+              onOpenCarousel={onOpenCarousel}
             />
           </div>
           <RealtimeCursors

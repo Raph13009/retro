@@ -45,7 +45,7 @@ export function RetroCard({
   const isAuthor = card.author_participant_id === participant.id;
   const phase = normalizePhase(room.current_phase);
   const originColumn =
-    phase === "discuss" && card.origin_column_id
+    phase !== "reflect" && card.origin_column_id
       ? columns.find((c) => c.id === card.origin_column_id)
       : null;
 

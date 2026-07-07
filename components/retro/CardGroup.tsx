@@ -228,7 +228,7 @@ function GroupedCard({
       }}
       className={cn(
         "retro-card-surface relative rounded-2xl p-3",
-        !hiddenReflection && phase === "discuss" && "reflection-reveal",
+        !hiddenReflection && phase !== "reflect" && "reflection-reveal",
         isOver && "ring-2 ring-[#8c83ad] ring-offset-2 ring-offset-[#f6f3ed]",
         isDragging && "opacity-35"
       )}

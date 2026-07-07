@@ -16,8 +16,9 @@ type BottomMeetingBarProps = {
   onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
   onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
-  onConfirmDiscuss: () => void;
+  onAdvancePhase: () => void;
   onCloseRoom: () => void;
+  onOpenCarousel?: () => void;
 };
 
 const MUSIC_TRACKS = [
@@ -27,6 +28,12 @@ const MUSIC_TRACKS = [
 ] as const;
 
 type MusicTrack = (typeof MUSIC_TRACKS)[number];
+
+const NEXT_PHASE_LABEL: Partial<Record<MeetingPhase, string>> = {
+  reflect: "Start grouping →",
+  group: "Start voting →",
+  vote: "Start discuss →",
+};
 
 export function BottomMeetingBar({
   room,
@@ -40,8 +47,9 @@ export function BottomMeetingBar({
   onSaveTimerDuration,
   onStartTimer,
   onStopTimer,
-  onConfirmDiscuss,
-  onCloseRoom
+  onAdvancePhase,
+  onCloseRoom,
+  onOpenCarousel
 }: BottomMeetingBarProps) {
   const voteLimit = getVoteLimit(room);
 
@@ -53,23 +61,52 @@ export function BottomMeetingBar({
         )}
       >
         <MusicPicker />
-        <TimerPicker
-          room={room}
-          phase={phase}
-          remainingSeconds={remainingSeconds}
-          isCreator={isCreator}
-          onSaveTimerDuration={onSaveTimerDuration}
-          onStartTimer={onStartTimer}
-          onStopTimer={onStopTimer}
-          onConfirmDiscuss={onConfirmDiscuss}
-          onCloseRoom={onCloseRoom}
-        />
+        {phase !== "vote" && phase !== "discuss" ? (
+          <TimerPicker
+            room={room}
+            phase={phase}
+            remainingSeconds={remainingSeconds}
+            isCreator={isCreator}
+            onSaveTimerDuration={onSaveTimerDuration}
+            onStartTimer={onStartTimer}
+            onStopTimer={onStopTimer}
+            onAdvancePhase={onAdvancePhase}
+            onCloseRoom={onCloseRoom}
+          />
+        ) : null}
         <LiveCursorsToggle enabled={liveCursorsEnabled} onToggle={onLiveCursorsToggle} />
         <div className="flex items-center gap-2 rounded-full bg-[#f1eef6] px-3 py-2 text-[#4f4974] sm:px-3.5 sm:py-2">
           <UsersRound className="h-4 w-4 shrink-0 text-[#6d668f]" />
           <span className="min-w-[1ch] text-center text-sm font-extrabold tabular-nums">{participants.length}</span>
         </div>
-        {phase === "discuss" ? <VoteSettingsControl voteLimit={voteLimit} isCreator={isCreator} onVoteLimitChange={onVoteLimitChange} /> : null}
+        {isCreator && phase === "group" ? (
+          <button
+            type="button"
+            onClick={onAdvancePhase}
+            className="flex items-center gap-2 rounded-full bg-[#343052] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)] transition hover:bg-[#2b2748]"
+          >
+            <span>🗳️</span> Start voting
+          </button>
+        ) : null}
+        {isCreator && phase === "vote" ? (
+          <button
+            type="button"
+            onClick={onAdvancePhase}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-[#343052] to-[#5c4f8a] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(92,79,138,0.7)] transition hover:opacity-90"
+          >
+            <span>💬</span> Start discuss
+          </button>
+        ) : null}
+        {phase === "discuss" && onOpenCarousel ? (
+          <button
+            type="button"
+            onClick={onOpenCarousel}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-[#343052] to-[#5c4f8a] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(92,79,138,0.7)] transition hover:opacity-90"
+          >
+            <span>🎯</span> Present cards
+          </button>
+        ) : null}
+        {phase === "discuss" || phase === "vote" ? <VoteSettingsControl voteLimit={voteLimit} isCreator={isCreator} onVoteLimitChange={onVoteLimitChange} /> : null}
       </div>
     </div>
   );
@@ -346,7 +383,7 @@ function TimerPicker({
   onSaveTimerDuration,
   onStartTimer,
   onStopTimer,
-  onConfirmDiscuss,
+  onAdvancePhase,
   onCloseRoom
 }: {
   room: Room;
@@ -356,7 +393,7 @@ function TimerPicker({
   onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
   onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
-  onConfirmDiscuss: () => void;
+  onAdvancePhase: () => void;
   onCloseRoom: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -415,11 +452,11 @@ function TimerPicker({
               <Square className="h-3.5 w-3.5 fill-current" />
               End retro
             </button>
-          ) : (
-            <button type="button" onClick={onConfirmDiscuss} className="rounded-full bg-[#343052] px-4 py-2 text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]">
-              Discuss
+          ) : phase === "reflect" ? (
+            <button type="button" onClick={onAdvancePhase} className="rounded-full bg-[#343052] px-4 py-2 text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]">
+              Start grouping →
             </button>
-          )
+          ) : null
         ) : (
           <button
             type="button"
