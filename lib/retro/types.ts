@@ -55,6 +55,7 @@ export type RetroCard = {
   id: string;
   room_id: string;
   column_id: string;
+  origin_column_id: string | null;
   group_id: string | null;
   author_participant_id: string;
   content: string;

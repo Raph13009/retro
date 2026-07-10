@@ -16,12 +16,14 @@ type RetroSidebarProps = {
   onExitHome: () => void;
 };
 
-type SidebarStepId = "joining" | "reflect" | "discuss";
+type SidebarStepId = "joining" | "reflect" | "group" | "vote" | "discuss";
 type StepState = "complete" | "active" | "upcoming";
 
 const SIDEBAR_STEPS: Array<{ id: SidebarStepId; label: string; status: string }> = [
   { id: "joining", label: "Joining", status: "Room setup" },
   { id: "reflect", label: "Reflect", status: "Write cards" },
+  { id: "group", label: "Group", status: "Cluster themes" },
+  { id: "vote", label: "Vote", status: "Prioritise" },
   { id: "discuss", label: "Discuss", status: "Decide next steps" }
 ];
 
@@ -40,7 +42,7 @@ function labelClip(collapsed: boolean) {
 
 export function RetroSidebar({ room, participant, currentPhase, collapsed, isCompactScreen, onToggleCollapsed, onOpenSupport, onExitHome }: RetroSidebarProps) {
   const [linkCopied, setLinkCopied] = useState(false);
-  const activeStep: SidebarStepId = room.status === "waiting" ? "joining" : currentPhase === "discuss" ? "discuss" : "reflect";
+  const activeStep: SidebarStepId = room.status === "waiting" ? "joining" : currentPhase;
   const currentIndex = SIDEBAR_STEPS.findIndex((step) => step.id === activeStep);
   const discuss = currentPhase === "discuss";
   const clip = labelClip(collapsed);
@@ -278,18 +280,9 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
         </div>
 
         <div className="mt-auto shrink-0 overflow-hidden pt-2">
-          {collapsed ? (
-            <div className={cn("invisible w-full shrink-0 pointer-events-none", MEETING_CARD)} aria-hidden />
-          ) : discuss ? (
+          {!collapsed && discuss ? (
             <div id={TROLL_PORTAL_ID} className={cn("w-full min-w-0 overflow-hidden", MEETING_CARD)} aria-hidden={false} />
-          ) : (
-            <div className={cn("rounded-xl border border-[#ded8e8]/70 bg-white/52 p-2.5 text-xs text-[#343052] shadow-sm", MEETING_CARD)}>
-              <p className={cn("font-bold transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none", clip)}>Meeting flow</p>
-              <p className={cn("mt-1 leading-snug text-[#6f6888] transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none", clip)}>
-                Join, reflect, then discuss decisions together.
-              </p>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
     </aside>

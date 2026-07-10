@@ -320,6 +320,7 @@ export function GroupBoard({
           <GroupColumn
             key={column.id}
             column={column}
+            columns={columns}
             phase={phase}
             groups={boardGroups
               .filter((group) => group.column_id === column.id)

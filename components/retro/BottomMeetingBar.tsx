@@ -16,8 +16,9 @@ type BottomMeetingBarProps = {
   onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
   onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
-  onConfirmDiscuss: () => void;
+  onAdvancePhase: () => void;
   onCloseRoom: () => void;
+  onOpenCarousel?: () => void;
 };
 
 const MUSIC_TRACKS = [
@@ -27,6 +28,12 @@ const MUSIC_TRACKS = [
 ] as const;
 
 type MusicTrack = (typeof MUSIC_TRACKS)[number];
+
+const NEXT_PHASE_LABEL: Partial<Record<MeetingPhase, string>> = {
+  reflect: "Start grouping →",
+  group: "Start voting →",
+  vote: "Start discuss →",
+};
 
 export function BottomMeetingBar({
   room,
@@ -40,8 +47,9 @@ export function BottomMeetingBar({
   onSaveTimerDuration,
   onStartTimer,
   onStopTimer,
-  onConfirmDiscuss,
-  onCloseRoom
+  onAdvancePhase,
+  onCloseRoom,
+  onOpenCarousel
 }: BottomMeetingBarProps) {
   const voteLimit = getVoteLimit(room);
 
@@ -53,23 +61,52 @@ export function BottomMeetingBar({
         )}
       >
         <MusicPicker />
-        <TimerPicker
-          room={room}
-          phase={phase}
-          remainingSeconds={remainingSeconds}
-          isCreator={isCreator}
-          onSaveTimerDuration={onSaveTimerDuration}
-          onStartTimer={onStartTimer}
-          onStopTimer={onStopTimer}
-          onConfirmDiscuss={onConfirmDiscuss}
-          onCloseRoom={onCloseRoom}
-        />
+        {phase !== "vote" && phase !== "discuss" ? (
+          <TimerPicker
+            room={room}
+            phase={phase}
+            remainingSeconds={remainingSeconds}
+            isCreator={isCreator}
+            onSaveTimerDuration={onSaveTimerDuration}
+            onStartTimer={onStartTimer}
+            onStopTimer={onStopTimer}
+            onAdvancePhase={onAdvancePhase}
+            onCloseRoom={onCloseRoom}
+          />
+        ) : null}
         <LiveCursorsToggle enabled={liveCursorsEnabled} onToggle={onLiveCursorsToggle} />
         <div className="flex items-center gap-2 rounded-full bg-[#f1eef6] px-3 py-2 text-[#4f4974] sm:px-3.5 sm:py-2">
           <UsersRound className="h-4 w-4 shrink-0 text-[#6d668f]" />
           <span className="min-w-[1ch] text-center text-sm font-extrabold tabular-nums">{participants.length}</span>
         </div>
-        {phase === "discuss" ? <VoteSettingsControl voteLimit={voteLimit} isCreator={isCreator} onVoteLimitChange={onVoteLimitChange} /> : null}
+        {isCreator && phase === "group" ? (
+          <button
+            type="button"
+            onClick={onAdvancePhase}
+            className="flex items-center gap-2 rounded-full bg-[#343052] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)] transition hover:bg-[#2b2748]"
+          >
+            <span>🗳️</span> Start voting
+          </button>
+        ) : null}
+        {isCreator && phase === "vote" ? (
+          <button
+            type="button"
+            onClick={onAdvancePhase}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-[#343052] to-[#5c4f8a] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(92,79,138,0.7)] transition hover:opacity-90"
+          >
+            <span>💬</span> Start discuss
+          </button>
+        ) : null}
+        {phase === "discuss" && onOpenCarousel ? (
+          <button
+            type="button"
+            onClick={onOpenCarousel}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-[#343052] to-[#5c4f8a] px-5 py-2.5 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(92,79,138,0.7)] transition hover:opacity-90"
+          >
+            <span>🎯</span> Present cards
+          </button>
+        ) : null}
+        {phase === "discuss" || phase === "vote" ? <VoteSettingsControl voteLimit={voteLimit} isCreator={isCreator} onVoteLimitChange={onVoteLimitChange} /> : null}
       </div>
     </div>
   );
@@ -346,7 +383,7 @@ function TimerPicker({
   onSaveTimerDuration,
   onStartTimer,
   onStopTimer,
-  onConfirmDiscuss,
+  onAdvancePhase,
   onCloseRoom
 }: {
   room: Room;
@@ -356,12 +393,12 @@ function TimerPicker({
   onSaveTimerDuration: (durationSeconds: number) => Promise<boolean> | boolean;
   onStartTimer: (durationSeconds: number) => Promise<boolean> | boolean;
   onStopTimer: () => void;
-  onConfirmDiscuss: () => void;
+  onAdvancePhase: () => void;
   onCloseRoom: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [draftMinutes, setDraftMinutes] = useState(Math.max(1, Math.round(room.timer_duration_seconds / 60)));
+  const [draftMinutes, setDraftMinutes] = useState<string>(String(Math.max(1, Math.round(room.timer_duration_seconds / 60))));
   const [isSaving, setIsSaving] = useState(false);
   const timerLabel = room.timer_status === "idle" ? formatTime(room.timer_duration_seconds) : formatTime(remainingSeconds);
   const waitingToStart = room.status === "waiting";
@@ -371,13 +408,15 @@ function TimerPicker({
 
   useEffect(() => {
     if (open) {
-      setDraftMinutes(Math.max(1, Math.round(room.timer_duration_seconds / 60)));
+      setDraftMinutes(String(Math.max(1, Math.round(room.timer_duration_seconds / 60))));
     }
   }, [open, room.timer_duration_seconds]);
 
   async function saveTimerDuration() {
     setIsSaving(true);
-    const didSave = await onSaveTimerDuration(draftMinutes * 60);
+    const parsed = parseInt(draftMinutes, 10);
+    const minutes = isNaN(parsed) || parsed < 1 ? 5 : Math.min(parsed, 60);
+    const didSave = await onSaveTimerDuration(minutes * 60);
     setIsSaving(false);
 
     if (didSave !== false) {
@@ -413,11 +452,11 @@ function TimerPicker({
               <Square className="h-3.5 w-3.5 fill-current" />
               End retro
             </button>
-          ) : (
-            <button type="button" onClick={onConfirmDiscuss} className="rounded-full bg-[#343052] px-4 py-2 text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]">
-              Discuss
+          ) : phase === "reflect" ? (
+            <button type="button" onClick={onAdvancePhase} className="rounded-full bg-[#343052] px-4 py-2 text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]">
+              Start grouping →
             </button>
-          )
+          ) : null
         ) : (
           <button
             type="button"
@@ -447,11 +486,19 @@ function TimerPicker({
           <label className="block">
             <span className="mb-1.5 block text-xs font-extrabold text-slate-500">Duration in minutes</span>
             <input
-              type="number"
-              min={1}
-              max={60}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={draftMinutes}
-              onChange={(event) => setDraftMinutes(Math.max(1, Math.min(60, Number(event.target.value) || 5)))}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "");
+                setDraftMinutes(val);
+              }}
+              onBlur={() => {
+                const parsed = parseInt(draftMinutes, 10);
+                const minutes = isNaN(parsed) || parsed < 1 ? 5 : Math.min(parsed, 60);
+                setDraftMinutes(String(minutes));
+              }}
               className="w-full rounded-2xl border border-[#ded8e8] bg-[#f7f5f0] px-3 py-2.5 text-sm font-extrabold text-slate-950 outline-none focus:border-[#8c83ad]"
             />
           </label>

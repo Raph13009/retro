@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 
 type RetroColumnProps = {
   column: RetroColumnType;
+  columns: RetroColumnType[];
   room: Room;
   participant: Participant;
   participants: Participant[];
@@ -41,6 +42,7 @@ type RetroColumnProps = {
 
 export function RetroColumn({
   column,
+  columns,
   room,
   participant,
   participants,
@@ -168,6 +170,7 @@ export function RetroColumn({
             <RetroCard
               key={card.id}
               card={card}
+              columns={columns}
               room={room}
               participant={participant}
               author={participants.find((candidate) => candidate.id === card.author_participant_id)}

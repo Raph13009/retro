@@ -1,13 +1,14 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { CheckSquare, GripVertical, MessageCircle, Pencil, Trash2 } from "lucide-react";
-import type { ActionItem, CardComment, Participant, Reaction, RetroCard as RetroCardType, Room, Vote } from "@/lib/retro/types";
+import type { ActionItem, CardComment, Participant, Reaction, RetroCard as RetroCardType, RetroColumn, Room, Vote } from "@/lib/retro/types";
 import { getVoteLimit, normalizePhase } from "@/lib/retro/types";
 import { CardInteractionBar } from "@/components/retro/GroupInteractionBar";
 import { cn } from "@/lib/utils";
 
 type RetroCardProps = {
   card: RetroCardType;
+  columns: RetroColumn[];
   room: Room;
   participant: Participant;
   author?: Participant;
@@ -25,6 +26,7 @@ type RetroCardProps = {
 
 export function RetroCard({
   card,
+  columns,
   room,
   participant,
   author,
@@ -42,6 +44,10 @@ export function RetroCard({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
   const isAuthor = card.author_participant_id === participant.id;
   const phase = normalizePhase(room.current_phase);
+  const originColumn =
+    phase !== "reflect" && card.origin_column_id
+      ? columns.find((c) => c.id === card.origin_column_id)
+      : null;
 
   return (
     <article
@@ -73,6 +79,11 @@ export function RetroCard({
               {(author?.name ?? "?").slice(0, 1).toUpperCase()}
             </span>
             <span>{author?.name ?? "Unknown"}</span>
+            {originColumn ? (
+              <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                from {originColumn.title}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>

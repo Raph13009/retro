@@ -9,6 +9,7 @@ import { AppToast, RetroNoticeToast } from "@/components/retro/AppToast";
 import { CommentDrawer } from "@/components/retro/CommentDrawer";
 import { ConfirmModal } from "@/components/retro/ConfirmModal";
 import { EvilEye } from "@/components/retro/EvilEye";
+import { DiscussCarousel } from "@/components/retro/DiscussCarousel";
 import { ExportSummaryModal } from "@/components/retro/ExportSummaryModal";
 import { GroupBoard } from "@/components/retro/GroupBoard";
 import { RenameGroupModal } from "@/components/retro/RenameGroupModal";
@@ -130,6 +131,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [operationError, setOperationError] = useState("");
   const [remainingSeconds, setRemainingSeconds] = useState(300);
   const [showSummary, setShowSummary] = useState(false);
+  const [showCarousel, setShowCarousel] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [oneMinuteNoticeVisible, setOneMinuteNoticeVisible] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
@@ -792,19 +794,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     return updateRoom(patch);
   }
 
-  async function stopTimerAndDiscuss() {
+  async function stopTimerAndGroup() {
     if (!isCreator || !room || room.timer_status !== "running") {
       return false;
     }
 
     setConfirmRequest({
       title: "Stop the timer?",
-      text: "This will end the writing timer and move everyone to Discuss.",
-      confirmLabel: "Stop and discuss",
+      text: "This will end the writing timer and move everyone to Group.",
+      confirmLabel: "Stop and group",
       tone: "danger",
       onConfirm: async () => {
+        await snapshotOriginColumns();
         await updateRoom({
-          current_phase: "discuss",
+          current_phase: "group",
           cards_revealed: true,
           timer_status: "ended",
           timer_started_at: null,
@@ -830,15 +833,80 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     });
   }
 
-  async function confirmDiscuss() {
-    if (!isCreator) {
+  async function snapshotOriginColumns() {
+    if (!supabase || !room) return;
+    const client = supabase;
+    const untagged = cards.filter((c) => !c.origin_column_id);
+    await Promise.all(
+      untagged.map((c) => client.from("cards").update({ origin_column_id: c.column_id }).eq("id", c.id))
+    );
+    setCards((prev) => prev.map((c) => (!c.origin_column_id ? { ...c, origin_column_id: c.column_id } : c)));
+  }
+
+  async function sortByVotesForDiscuss() {
+    if (!supabase || !room) return;
+    const client = supabase;
+
+    const columnIds = [...new Set(cards.map((c) => c.column_id))];
+    const allGroups = cardGroups;
+
+    for (const columnId of columnIds) {
+      const colGroups = allGroups.filter((g: CardGroup) => g.column_id === columnId).sort((a: CardGroup, b: CardGroup) => b.vote_count - a.vote_count);
+      const colUngrouped = cards.filter((c) => c.column_id === columnId && !c.group_id).sort((a, b) => b.vote_count - a.vote_count);
+
+      const orderedItems: Array<{ type: "group" | "card"; id: string; vote_count: number }> = [
+        ...colGroups.map((g) => ({ type: "group" as const, id: g.id, vote_count: g.vote_count })),
+        ...colUngrouped.map((c) => ({ type: "card" as const, id: c.id, vote_count: c.vote_count })),
+      ].sort((a, b) => b.vote_count - a.vote_count);
+
+      await Promise.all(
+        orderedItems.map((item, index) => {
+          const pos = index * 1000;
+          if (item.type === "group") {
+            return client.from("card_groups").update({ position: pos }).eq("id", item.id);
+          } else {
+            return client.from("cards").update({ position: pos }).eq("id", item.id);
+          }
+        })
+      );
+
+      setCardGroups((prev) =>
+        prev.map((g) => {
+          const idx = orderedItems.findIndex((i) => i.type === "group" && i.id === g.id);
+          return idx >= 0 ? { ...g, position: idx * 1000 } : g;
+        })
+      );
+      setCards((prev) =>
+        prev.map((c) => {
+          const idx = orderedItems.findIndex((i) => i.type === "card" && i.id === c.id);
+          return idx >= 0 ? { ...c, position: idx * 1000 } : c;
+        })
+      );
+    }
+  }
+
+  async function advancePhase() {
+    if (!isCreator || !room) {
       return false;
     }
 
+    const next: Partial<Record<MeetingPhase, MeetingPhase>> = { reflect: "group", group: "vote", vote: "discuss" };
+    const nextPhase = next[currentPhase];
+    if (!nextPhase) return false;
+
+    if (currentPhase === "reflect") {
+      await snapshotOriginColumns();
+    }
+
+    if (currentPhase === "vote") {
+      await sortByVotesForDiscuss();
+    }
+
     return updateRoom({
-      current_phase: "discuss",
+      current_phase: nextPhase,
       cards_revealed: true,
-      status: "active"
+      status: "active",
+      ...(nextPhase !== "discuss" ? { timer_status: "idle", timer_started_at: null } : {})
     });
   }
 
@@ -884,6 +952,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         .insert({
           room_id: roomId,
           column_id: columnId,
+          origin_column_id: columnId,
           author_participant_id: participantId,
           content,
           sort_order: position,
@@ -980,7 +1049,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function createGroup(columnId: string, card?: RetroCard) {
-    if (!supabase || !room || !participant) {
+    if (!supabase || !room || !participant || currentPhase !== "group") {
       return false;
     }
 
@@ -1051,7 +1120,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function groupCards(card: RetroCard, targetCard: RetroCard) {
-    if (!supabase || !room || !participant || card.id === targetCard.id) {
+    if (!supabase || !room || !participant || card.id === targetCard.id || currentPhase !== "group") {
       return;
     }
 
@@ -1186,7 +1255,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   }
 
   async function moveCardToGroup(card: RetroCard, group: CardGroup) {
-    if (!supabase || !room) {
+    if (!supabase || !room || currentPhase !== "group") {
       return;
     }
 
@@ -2397,10 +2466,10 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       onSaveTimerDuration={saveTimerDuration}
       onStartTimer={startTimer}
       onStopTimer={() => {
-        void stopTimerAndDiscuss();
+        void stopTimerAndGroup();
       }}
-      onConfirmDiscuss={() => {
-        void confirmDiscuss();
+      onAdvancePhase={() => {
+        void advancePhase();
       }}
       onCloseRoom={() => {
         void closeRoom();
@@ -2408,11 +2477,12 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       onOpenSupport={() => setSupportOpen(true)}
       onExitHome={() => router.push("/")}
       onLiveCursorsToggle={toggleLiveCursorsLocal}
+      onOpenCarousel={currentPhase === "discuss" ? () => setShowCarousel(true) : undefined}
       votes={votes}
     >
-      {room.timer_status === "ended" && currentPhase !== "discuss" ? (
+      {room.timer_status === "ended" && currentPhase === "reflect" ? (
         <div className="fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-[#c05f5f] px-4 py-2 text-sm font-medium text-white shadow-[0_14px_30px_-22px_rgba(192,95,95,0.54)]">
-          Time is up. Facilitator can switch to Discuss.
+          Time is up. Facilitator can move to Group phase.
         </div>
       ) : null}
       <AppToast message={operationError} onClose={() => setOperationError("")} />
@@ -2452,14 +2522,14 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       />
       {isCreator &&
       room.status !== "ended" &&
-      currentPhase !== "discuss" &&
+      currentPhase === "reflect" &&
       (room.timer_status === "ended" || (room.timer_status === "running" && remainingSeconds <= 0)) ? (
         <TimerEndedDecisionModal
           onAddMinute={() => {
             void addOneMinute();
           }}
-          onConfirmDiscuss={() => {
-            void confirmDiscuss();
+          onAdvancePhase={() => {
+            void advancePhase();
           }}
         />
       ) : null}
@@ -2505,6 +2575,23 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         onClose={() => setSelectedCard(null)}
         onAddComment={addComment}
       />
+      {showCarousel && currentPhase === "discuss" ? (
+        <DiscussCarousel
+          phase={currentPhase}
+          columns={columns}
+          groups={cardGroups.filter((g) => !isTrollGroup(g))}
+          cards={visibleCards.filter((c) => {
+            const grp = c.group_id ? cardGroups.find((g) => g.id === c.group_id) : null;
+            return !grp || !isTrollGroup(grp);
+          })}
+          participants={participants}
+          actionItems={actionItems}
+          onCreateActionItemFromCard={createActionItemFromCard}
+          onCreateActionItemFromGroup={createActionItemFromGroup}
+          onClose={() => setShowCarousel(false)}
+        />
+      ) : null}
+
       <ExportSummaryModal
         open={showSummary}
         room={room}
@@ -2517,6 +2604,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         actionItems={actionItems}
         onClose={() => setShowSummary(false)}
         onFinish={async () => {
+          await snapshotOriginColumns();
           await updateRoom({
             current_phase: "discuss",
             status: "ended",
@@ -2627,21 +2715,21 @@ function OneMinuteTimerNotification({ visible, onClose }: { visible: boolean; on
   );
 }
 
-function TimerEndedDecisionModal({ onAddMinute, onConfirmDiscuss }: { onAddMinute: () => void; onConfirmDiscuss: () => void }) {
+function TimerEndedDecisionModal({ onAddMinute, onAdvancePhase }: { onAddMinute: () => void; onAdvancePhase: () => void }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/24 p-6 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-[2rem] border border-[#ded8e8]/80 bg-white p-5 text-slate-950 shadow-[0_28px_90px_-42px_rgba(49,46,78,0.42)]">
         <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#b55252]">Time is up</p>
-        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">It&apos;s over.</h2>
+        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Writing round over.</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          End the writing round now, or give the team one more minute.
+          Move to the grouping phase, or give the team one more minute.
         </p>
         <div className="mt-6 flex gap-2">
           <button type="button" onClick={onAddMinute} className="flex-1 rounded-2xl bg-[#ebe8f4] px-4 py-3 text-sm font-extrabold text-[#4f4974]">
             +1 minute
           </button>
-          <button type="button" onClick={onConfirmDiscuss} className="flex-[1.3] rounded-2xl bg-[#343052] px-4 py-3 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]">
-            End
+          <button type="button" onClick={onAdvancePhase} className="flex-[1.3] rounded-2xl bg-[#343052] px-4 py-3 text-sm font-extrabold text-white shadow-[0_14px_30px_-22px_rgba(52,48,82,0.58)]">
+            Start grouping →
           </button>
         </div>
       </div>

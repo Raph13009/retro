@@ -113,6 +113,7 @@ export function RetroBoard({
             onVoteCard={onVoteCard}
             onReactToCard={onReactToCard}
             onConvertToActionItem={onConvertToActionItem}
+            columns={columns}
             onRenameColumn={onRenameColumn}
             onDeleteColumn={onDeleteColumn}
             onMoveColumn={onMoveColumn}

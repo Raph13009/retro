@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 type GroupColumnProps = {
   column: RetroColumn;
+  columns: RetroColumn[];
   phase: MeetingPhase;
   groups: CardGroupType[];
   cards: RetroCard[];
@@ -35,6 +36,7 @@ const DOT_COLORS = ["bg-rose-300", "bg-amber-300", "bg-emerald-300", "bg-teal-30
 
 export function GroupColumn({
   column,
+  columns,
   phase,
   groups,
   cards,
@@ -138,6 +140,7 @@ export function GroupColumn({
               key={group.id}
               group={group}
               cards={cards.filter((card) => card.group_id === group.id)}
+              columns={columns}
               participants={participants}
               votes={votes}
               reactions={reactions}
@@ -159,6 +162,7 @@ export function GroupColumn({
               <UngroupedCard
                 key={card.id}
                 card={card}
+                columns={columns}
                 participant={participants.find((candidate) => candidate.id === card.author_participant_id)}
                 phase={phase}
                 votes={votes}
@@ -186,6 +190,7 @@ export function GroupColumn({
 
 function UngroupedCard({
   card,
+  columns,
   participant,
   phase,
   votes,
@@ -199,6 +204,7 @@ function UngroupedCard({
   onReact
 }: {
   card: RetroCard;
+  columns: RetroColumn[];
   participant?: Participant;
   phase: MeetingPhase;
   votes: Vote[];
@@ -226,7 +232,7 @@ function UngroupedCard({
       ref={setNodeRef}
       className={cn(
         "retro-card-surface rounded-2xl p-3",
-        !hiddenReflection && phase === "discuss" && "reflection-reveal",
+        !hiddenReflection && phase !== "reflect" && "reflection-reveal",
         topVoted && "ring-2 ring-amber-200 shadow-[0_18px_36px_-24px_rgba(180,120,40,0.32)]",
         isOver && "ring-2 ring-[#8c83ad] ring-offset-2 ring-offset-white",
         isDragging && "opacity-35"
@@ -247,6 +253,11 @@ function UngroupedCard({
             >
               {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
             </span>
+            {phase !== "reflect" && card.origin_column_id ? (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                {columns.find((c) => c.id === card.origin_column_id)?.title ?? ""}
+              </span>
+            ) : null}
           </div>
         )}
         <div className="flex items-center gap-1">
