@@ -16,9 +16,11 @@ import { RenameGroupModal } from "@/components/retro/RenameGroupModal";
 import { RetroLayout } from "@/components/retro/RetroLayout";
 import { RoomLoadingSkeleton } from "@/components/retro/RetroSkeletons";
 import { SupportModal } from "@/components/retro/SupportModal";
+import { GuestPickerPage, GuestPickerUnlock } from "@/components/retro/GuestPicker";
 import { avatarColorForName, getStoredParticipant, storeParticipant } from "@/lib/retro/local-participant";
 import { clearFacilitatorClaim, hasFacilitatorClaimForRoom } from "@/lib/retro/facilitator-claim";
 import { getMessengerInitials, pickOneMinuteMessenger, type OneMinuteMessenger } from "@/lib/retro/one-minute-notices";
+import { normalizeGuestName, type TeamGuest } from "@/lib/retro/team-roster";
 import { getRemainingSeconds, timerEnded } from "@/lib/retro/timer";
 import { TROLL_GROUP_CREATED_BY, TROLL_GROUP_TITLE, isTrollGroup } from "@/lib/retro/troll";
 import type {
@@ -122,6 +124,18 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [selectedCard, setSelectedCard] = useState<RetroCard | null>(null);
   const [joinName, setJoinName] = useState("");
+  const [teammateMode, setTeammateMode] = useState(false);
+  const [rosterUnlocked, setRosterUnlocked] = useState(false);
+  const [selectedGuest, setSelectedGuest] = useState<TeamGuest | null>(null);
+  const [selectingGuestName, setSelectingGuestName] = useState<string | null>(null);
+  const [lobbyClaims, setLobbyClaims] = useState<string[]>([]);
+  const lobbyChannelRef = useRef<{
+    send: (args: { type: "broadcast"; event: string; payload: { name: string; clientId: string } }) => Promise<string>;
+  } | null>(null);
+  const lobbyClientIdRef = useRef(
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `lobby-${Date.now()}`
+  );
+  const joiningLockRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showRoomLoadSkeleton, setShowRoomLoadSkeleton] = useState(false);
   const roomSkeletonTimerRef = useRef<number | null>(null);
@@ -435,8 +449,20 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` }, () => {
         void loadSnapshot(room.id);
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "participants", filter: `room_id=eq.${room.id}` }, () => {
-        void loadSnapshot(room.id);
+      .on("postgres_changes", { event: "*", schema: "public", table: "participants", filter: `room_id=eq.${room.id}` }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const deletedParticipant = payload.old as Pick<Participant, "id">;
+          setParticipants((current) => current.filter((row) => row.id !== deletedParticipant.id));
+          return;
+        }
+
+        const nextParticipant = payload.new as Participant;
+        setParticipants((current) => {
+          const exists = current.some((row) => row.id === nextParticipant.id);
+          return exists
+            ? current.map((row) => (row.id === nextParticipant.id ? nextParticipant : row))
+            : [...current, nextParticipant];
+        });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "columns", filter: `room_id=eq.${room.id}` }, () => {
         void loadSnapshot(room.id);
@@ -513,6 +539,70 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       void client.removeChannel(channel);
     };
   }, [loadSnapshot, room?.id]);
+
+  useEffect(() => {
+    if (!supabase || !room?.id || participant) {
+      lobbyChannelRef.current = null;
+      return;
+    }
+
+    const client = supabase;
+    const claimTimeouts = new Map<string, number>();
+
+    function clearClaimTimeout(name: string) {
+      const key = normalizeGuestName(name);
+      const timeoutId = claimTimeouts.get(key);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        claimTimeouts.delete(key);
+      }
+    }
+
+    function scheduleClaimExpiry(name: string) {
+      const key = normalizeGuestName(name);
+      clearClaimTimeout(name);
+      claimTimeouts.set(
+        key,
+        window.setTimeout(() => {
+          setLobbyClaims((current) => current.filter((entry) => normalizeGuestName(entry) !== key));
+          claimTimeouts.delete(key);
+        }, 8000)
+      );
+    }
+
+    const channel = client
+      .channel(`retro-lobby:${room.id}`)
+      .on("broadcast", { event: "claim" }, ({ payload }) => {
+        const claim = payload as { name?: string; clientId?: string };
+        if (!claim.name || claim.clientId === lobbyClientIdRef.current) {
+          return;
+        }
+        setLobbyClaims((current) =>
+          current.some((name) => normalizeGuestName(name) === normalizeGuestName(claim.name!))
+            ? current
+            : [...current, claim.name!]
+        );
+        scheduleClaimExpiry(claim.name);
+      })
+      .on("broadcast", { event: "release" }, ({ payload }) => {
+        const claim = payload as { name?: string; clientId?: string };
+        if (!claim.name || claim.clientId === lobbyClientIdRef.current) {
+          return;
+        }
+        clearClaimTimeout(claim.name);
+        setLobbyClaims((current) => current.filter((name) => normalizeGuestName(name) !== normalizeGuestName(claim.name!)));
+      })
+      .subscribe();
+
+    lobbyChannelRef.current = channel;
+
+    return () => {
+      claimTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      claimTimeouts.clear();
+      lobbyChannelRef.current = null;
+      void client.removeChannel(channel);
+    };
+  }, [participant, room?.id]);
 
   useEffect(() => {
     if (!supabase || !room?.id || !participant) {
@@ -632,19 +722,41 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
   async function joinRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await joinWithName(joinName);
+  }
+
+  async function joinWithName(rawName: string) {
     setError("");
 
-    if (!supabase || !room) {
+    if (!supabase || !room || joiningLockRef.current) {
       return;
     }
 
-    const trimmedName = joinName.trim();
+    const trimmedName = rawName.trim();
     if (!trimmedName) {
       setError("Enter a name to join the room.");
       return;
     }
 
+    const alreadyTaken =
+      participants.some((row) => normalizeGuestName(row.name) === normalizeGuestName(trimmedName)) ||
+      lobbyClaims.some((name) => normalizeGuestName(name) === normalizeGuestName(trimmedName));
+    if (alreadyTaken) {
+      setError("That name is already taken in this room.");
+      return;
+    }
+
+    joiningLockRef.current = true;
     setIsJoining(true);
+    setSelectingGuestName(trimmedName);
+
+    const claimPayload = { name: trimmedName, clientId: lobbyClientIdRef.current };
+    void lobbyChannelRef.current?.send({ type: "broadcast", event: "claim", payload: claimPayload });
+    setLobbyClaims((current) =>
+      current.some((name) => normalizeGuestName(name) === normalizeGuestName(trimmedName))
+        ? current
+        : [...current, trimmedName]
+    );
 
     try {
       const { data, error: joinError } = await supabase
@@ -664,6 +776,9 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
       const joinedParticipant = data as Participant;
       storeParticipant(roomSlug, joinedParticipant);
       setParticipant(joinedParticipant);
+      setParticipants((current) =>
+        current.some((row) => row.id === joinedParticipant.id) ? current : [...current, joinedParticipant]
+      );
 
       const claimForThisRoom = hasFacilitatorClaimForRoom(roomSlug, room.id);
       if (claimForThisRoom) {
@@ -697,10 +812,38 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
       await loadSnapshot(room.id);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Could not join the room.");
+      void lobbyChannelRef.current?.send({ type: "broadcast", event: "release", payload: claimPayload });
+      setLobbyClaims((current) => current.filter((name) => normalizeGuestName(name) !== normalizeGuestName(trimmedName)));
+
+      const message = caughtError instanceof Error ? caughtError.message : "Could not join the room.";
+      const looksLikeDuplicate =
+        message.toLowerCase().includes("duplicate") ||
+        message.toLowerCase().includes("unique") ||
+        message.includes("23505");
+      setError(looksLikeDuplicate ? "That name was just taken. Pick someone else." : message);
     } finally {
+      joiningLockRef.current = false;
       setIsJoining(false);
+      setSelectingGuestName(null);
     }
+  }
+
+  async function pickTeammate(guest: TeamGuest) {
+    await joinWithName(guest.name);
+  }
+
+  function openTeammatePassword() {
+    setTeammateMode(true);
+    setRosterUnlocked(false);
+    setSelectedGuest(null);
+    setError("");
+  }
+
+  function closeTeammateMode() {
+    setTeammateMode(false);
+    setRosterUnlocked(false);
+    setSelectedGuest(null);
+    setError("");
   }
 
   async function updateRoom(patch: Partial<Room>) {
@@ -2397,6 +2540,43 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
 
   if (!participant) {
     const claimingFacilitator = hasFacilitatorClaimForRoom(roomSlug, room.id) && !room.creator_participant_id;
+    const takenNames = [
+      ...participants.map((row) => row.name),
+      ...lobbyClaims
+    ];
+
+    if (teammateMode && rosterUnlocked) {
+      return (
+        <GuestPickerPage
+          roomName={room.name}
+          claimingFacilitator={claimingFacilitator}
+          takenNames={takenNames}
+          joiningName={selectingGuestName}
+          selectedGuest={selectedGuest}
+          error={error}
+          onSelect={(guest) => {
+            if (selectingGuestName) {
+              return;
+            }
+            setError("");
+            setSelectedGuest(guest);
+          }}
+          onConfirm={() => {
+            if (!selectedGuest) {
+              return;
+            }
+            void pickTeammate(selectedGuest);
+          }}
+          onClearSelection={() => {
+            if (selectingGuestName) {
+              return;
+            }
+            setSelectedGuest(null);
+          }}
+          onBack={closeTeammateMode}
+        />
+      );
+    }
 
     return (
       <main className="grid min-h-dvh place-items-center p-4 text-neutral-950 sm:p-6">
@@ -2424,24 +2604,50 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
               ? "Pick your name. You will become the meeting facilitator, then you can share the clean room URL with everyone else."
               : "Pick a name or pseudonym. It is stored locally on this device and used for cards, votes, and comments."}
           </p>
-          <label className="mt-6 block">
-            <span className="mb-2 block text-sm font-medium text-slate-600">Your name</span>
-            <input
-              value={joinName}
-              onChange={(event) => setJoinName(event.target.value)}
-              placeholder="Alex"
-              className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-[#8c83ad]"
-            />
-          </label>
-          {error ? <p className="mt-3 text-sm text-[#b55252]">{error}</p> : null}
-          <button
-            type="submit"
-            disabled={isJoining}
-            className="primary-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium disabled:opacity-50"
-          >
-            {isJoining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {claimingFacilitator ? "Enter as Facilitator" : "Join room"}
-          </button>
+
+          {!teammateMode ? (
+            <>
+              <button
+                type="button"
+                onClick={openTeammatePassword}
+                className="mt-5 flex w-full items-center justify-between gap-3 rounded-[1.35rem] border border-[#ded8e8] bg-white px-4 py-3.5 text-left transition hover:border-[#8c83ad] hover:bg-[#f7f5fb]"
+              >
+                <span>
+                  <span className="block text-sm font-extrabold text-slate-950">Pick a teammate</span>
+                  <span className="mt-0.5 block text-xs font-medium text-slate-500">
+                    Choose from the team roster with avatars
+                  </span>
+                </span>
+                <span className="rounded-full bg-[#ebe8f4] px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#6d668f]">
+                  Roster
+                </span>
+              </button>
+
+              <label className="mt-6 block">
+                <span className="mb-2 block text-sm font-medium text-slate-600">Your name</span>
+                <input
+                  value={joinName}
+                  onChange={(event) => setJoinName(event.target.value)}
+                  placeholder="Alex"
+                  className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-[#8c83ad]"
+                />
+              </label>
+
+              {error ? <p className="mt-3 text-sm text-[#b55252]">{error}</p> : null}
+
+              <button
+                type="submit"
+                disabled={isJoining}
+                className="primary-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium disabled:opacity-50"
+              >
+                {isJoining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {claimingFacilitator ? "Enter as Facilitator" : "Join room"}
+              </button>
+            </>
+          ) : (
+            <GuestPickerUnlock onUnlocked={() => setRosterUnlocked(true)} onCancel={closeTeammateMode} />
+          )}
+
           <div className="mt-5 text-center">
             <Link href="/" className="text-sm font-semibold text-[#6d668f] underline decoration-[#c9c2d7] underline-offset-2 hover:text-[#4f4974]">
               Back home

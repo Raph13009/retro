@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckSquare, ChevronLeft, ChevronRight, ThumbsUp, X } from "lucide-react";
 import type { ActionItem, CardGroup, MeetingPhase, Participant, RetroCard, RetroColumn } from "@/lib/retro/types";
+import { PersonAvatar } from "@/components/retro/PersonAvatar";
 import { cn } from "@/lib/utils";
 
 type CarouselItem =
@@ -205,12 +206,7 @@ function GroupSlide({ group, cards, participants, columns }: { group: CardGroup;
             <div key={card.id} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
               <p className="text-sm font-medium leading-5 text-slate-800">{card.content}</p>
               <div className="mt-2 flex items-center gap-2">
-                <span
-                  className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
-                  style={{ backgroundColor: author?.avatar_color ?? "#94a3b8" }}
-                >
-                  {(author?.name ?? "?").slice(0, 1).toUpperCase()}
-                </span>
+                <PersonAvatar name={author?.name ?? "?"} color={author?.avatar_color ?? "#94a3b8"} size="xs" />
                 <span className="text-xs font-semibold text-slate-400">{author?.name ?? "Unknown"}</span>
                 {originCol ? (
                   <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-slate-400">
@@ -238,12 +234,7 @@ function CardSlide({ card, participants, columns }: { card: RetroCard; participa
       ) : null}
       <p className="text-lg font-semibold leading-7 text-slate-900">{card.content}</p>
       <div className="mt-5 flex items-center gap-2">
-        <span
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
-          style={{ backgroundColor: author?.avatar_color ?? "#94a3b8" }}
-        >
-          {(author?.name ?? "?").slice(0, 1).toUpperCase()}
-        </span>
+        <PersonAvatar name={author?.name ?? "?"} color={author?.avatar_color ?? "#94a3b8"} size="sm" className="h-6 w-6 text-xs" />
         <span className="text-sm font-semibold text-slate-500">{author?.name ?? "Unknown"}</span>
       </div>
     </div>

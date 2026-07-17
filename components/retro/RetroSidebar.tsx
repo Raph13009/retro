@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight, Home, LifeBuoy, Link2, UserRound } fr
 import type { MeetingPhase, Participant, Room } from "@/lib/retro/types";
 import { TROLL_PORTAL_ID } from "@/lib/retro/troll";
 import { useTherapyDiscussMode } from "@/components/retro/useTherapyDiscussMode";
+import { PersonAvatar } from "@/components/retro/PersonAvatar";
 import { cn } from "@/lib/utils";
 
 type RetroSidebarProps = {
@@ -104,13 +105,12 @@ export function RetroSidebar({ room, participant, currentPhase, collapsed, isCom
             collapsed ? "justify-center border-transparent bg-transparent shadow-none" : "justify-start"
           )}
         >
-          <div
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
-            style={{ backgroundColor: participant.avatar_color }}
+          <PersonAvatar
+            name={participant.name}
+            color={participant.avatar_color}
+            size="sm"
             title={collapsed ? `${participant.name} (you)` : undefined}
-          >
-            {participant.name.slice(0, 1).toUpperCase()}
-          </div>
+          />
           <div
             className={cn(
               "min-w-0 shrink-0 overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none",
