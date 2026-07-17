@@ -18,6 +18,7 @@ import { RoomLoadingSkeleton } from "@/components/retro/RetroSkeletons";
 import { SupportModal } from "@/components/retro/SupportModal";
 import { avatarColorForName, getStoredParticipant, storeParticipant } from "@/lib/retro/local-participant";
 import { clearFacilitatorClaim, hasFacilitatorClaimForRoom } from "@/lib/retro/facilitator-claim";
+import { getMessengerInitials, pickOneMinuteMessenger, type OneMinuteMessenger } from "@/lib/retro/one-minute-notices";
 import { getRemainingSeconds, timerEnded } from "@/lib/retro/timer";
 import { TROLL_GROUP_CREATED_BY, TROLL_GROUP_TITLE, isTrollGroup } from "@/lib/retro/troll";
 import type {
@@ -67,8 +68,6 @@ function nextGroupTitle(groups: CardGroup[]) {
 
   return `Group ${nextNumber}`;
 }
-
-const ONE_MINUTE_AVATAR_SRC = "/Screenshot 2026-05-11 at 17.27.17.png";
 
 // When a card is removed from a group, this computes whether the source group should be
 // dissolved. A group with fewer than 2 cards is not a real group: the sole remaining card
@@ -134,6 +133,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [showCarousel, setShowCarousel] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [oneMinuteNoticeVisible, setOneMinuteNoticeVisible] = useState(false);
+  const [oneMinuteMessenger, setOneMinuteMessenger] = useState<OneMinuteMessenger | null>(null);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const [textRequest, setTextRequest] = useState<TextRequest | null>(null);
   const [groupToRename, setGroupToRename] = useState<CardGroup | null>(null);
@@ -586,6 +586,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
     const noticeKey = `${room.id}:${room.timer_started_at ?? "running"}`;
     if (remainingSeconds <= 60 && remainingSeconds > 0 && oneMinuteNoticeKeyRef.current !== noticeKey) {
       oneMinuteNoticeKeyRef.current = noticeKey;
+      setOneMinuteMessenger(pickOneMinuteMessenger());
       setOneMinuteNoticeVisible(true);
     }
   }, [remainingSeconds, room]);
@@ -2500,7 +2501,11 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
         message={retroNoticeBanner.message}
         onClose={() => setRetroNoticeBanner({ visible: false, message: "" })}
       />
-      <OneMinuteTimerNotification visible={oneMinuteNoticeVisible} onClose={() => setOneMinuteNoticeVisible(false)} />
+      <OneMinuteTimerNotification
+        visible={oneMinuteNoticeVisible}
+        messenger={oneMinuteMessenger}
+        onClose={() => setOneMinuteNoticeVisible(false)}
+      />
       <ConfirmModal
         open={Boolean(confirmRequest)}
         title={confirmRequest?.title ?? ""}
@@ -2677,16 +2682,25 @@ function TextInputModal({ request, onClose }: { request: TextRequest | null; onC
   );
 }
 
-function OneMinuteTimerNotification({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function OneMinuteTimerNotification({
+  visible,
+  messenger,
+  onClose
+}: {
+  visible: boolean;
+  messenger: OneMinuteMessenger | null;
+  onClose: () => void;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
+  const initials = messenger ? getMessengerInitials(messenger.name) : "?";
 
   useEffect(() => {
     if (visible) {
       setImageFailed(false);
     }
-  }, [visible]);
+  }, [visible, messenger?.avatarSrc]);
 
-  if (!visible) {
+  if (!visible || !messenger) {
     return null;
   }
 
@@ -2694,18 +2708,18 @@ function OneMinuteTimerNotification({ visible, onClose }: { visible: boolean; on
     <div className="fixed left-1/2 top-5 z-50 w-[min(92vw,420px)] -translate-x-1/2 rounded-[1.4rem] border border-[#ded8e8]/80 bg-white/92 p-3 text-slate-950 shadow-[0_24px_80px_-42px_rgba(49,46,78,0.38)] backdrop-blur-2xl">
       <div className="flex items-center gap-3">
         {imageFailed ? (
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-950 text-xs font-extrabold text-white">PS</div>
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-950 text-xs font-extrabold text-white">{initials}</div>
         ) : (
           <img
-            src={ONE_MINUTE_AVATAR_SRC}
-            alt="Timer messenger avatar"
+            src={messenger.avatarSrc}
+            alt={`${messenger.name} avatar`}
             onError={() => setImageFailed(true)}
             className="h-11 w-11 shrink-0 rounded-full border border-[#ded8e8] object-cover shadow-sm"
           />
         )}
         <div className="min-w-0 flex-1">
-          <span className="text-[11px] font-bold text-slate-400">now</span>
-          <p className="mt-1 text-sm font-extrabold tracking-[-0.02em] text-slate-950">One minute left. Wrap it up.</p>
+          <span className="text-[11px] font-bold text-slate-400">{messenger.name} · now</span>
+          <p className="mt-1 text-sm font-extrabold tracking-[-0.02em] text-slate-950">{messenger.message}</p>
         </div>
         <button type="button" onClick={onClose} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-extrabold text-slate-500 hover:bg-[#f1eef6]">
           Dismiss
