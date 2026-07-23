@@ -173,6 +173,7 @@ create table if not exists public.support_tickets (
 );
 
 create index if not exists participants_room_id_idx on public.participants(room_id);
+create unique index if not exists participants_room_id_lower_name_uidx on public.participants (room_id, lower(name));
 create index if not exists columns_room_id_sort_order_idx on public.columns(room_id, sort_order);
 create index if not exists card_groups_room_id_column_id_position_idx on public.card_groups(room_id, column_id, position);
 create index if not exists cards_room_id_column_id_sort_order_idx on public.cards(room_id, column_id, sort_order);

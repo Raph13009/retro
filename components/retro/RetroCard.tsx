@@ -4,6 +4,7 @@ import { CheckSquare, GripVertical, MessageCircle, Pencil, Trash2 } from "lucide
 import type { ActionItem, CardComment, Participant, Reaction, RetroCard as RetroCardType, RetroColumn, Room, Vote } from "@/lib/retro/types";
 import { getVoteLimit, normalizePhase } from "@/lib/retro/types";
 import { CardInteractionBar } from "@/components/retro/GroupInteractionBar";
+import { PersonAvatar } from "@/components/retro/PersonAvatar";
 import { cn } from "@/lib/utils";
 
 type RetroCardProps = {
@@ -72,12 +73,7 @@ export function RetroCard({
         <div className="min-w-0 flex-1">
           <p className="whitespace-pre-wrap text-sm leading-6 text-slate-950">{card.content}</p>
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-            <span
-              className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-semibold text-white"
-              style={{ backgroundColor: author?.avatar_color ?? "#71717a" }}
-            >
-              {(author?.name ?? "?").slice(0, 1).toUpperCase()}
-            </span>
+            <PersonAvatar name={author?.name ?? "?"} color={author?.avatar_color ?? "#71717a"} size="xs" />
             <span>{author?.name ?? "Unknown"}</span>
             {originColumn ? (
               <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">

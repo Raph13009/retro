@@ -4,6 +4,7 @@ import { ChevronDown, Pencil, Trash2, Ungroup } from "lucide-react";
 import { CardVotingControls } from "@/components/retro/CardVotingControls";
 import { CardGroup } from "@/components/retro/CardGroup";
 import { HiddenReflectionMeta, HiddenReflectionSkeleton, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
+import { PersonAvatar } from "@/components/retro/PersonAvatar";
 import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
@@ -246,13 +247,12 @@ function UngroupedCard({
           <HiddenReflectionMeta />
         ) : (
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-            <span
-              className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
-              style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
-              aria-label={participant?.name ?? "Unknown author"}
-            >
-              {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
-            </span>
+            <PersonAvatar
+              name={participant?.name ?? "?"}
+              color={participant?.avatar_color ?? "#94a3b8"}
+              size="xs"
+              title={participant?.name ?? "Unknown author"}
+            />
             {phase !== "reflect" && card.origin_column_id ? (
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">
                 {columns.find((c) => c.id === card.origin_column_id)?.title ?? ""}

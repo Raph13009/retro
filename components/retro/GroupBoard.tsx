@@ -16,6 +16,7 @@ import type { ActionItem, CardGroup, MeetingPhase, Participant, Reaction, RetroC
 import { ActionsColumn } from "@/components/retro/ActionsColumn";
 import { HiddenReflectionMeta, HiddenReflectionSkeleton, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
 import { GroupColumn } from "@/components/retro/GroupColumn";
+import { PersonAvatar } from "@/components/retro/PersonAvatar";
 import { useSidebarUi } from "@/components/retro/SidebarUiContext";
 import { useBoardHorizontalScrollPeek } from "@/components/retro/useBoardHorizontalScrollPeek";
 import { TROLL_DROP_ID, TROLL_PORTAL_ID, isTrollGroup } from "@/lib/retro/troll";
@@ -548,12 +549,7 @@ function TrollCard({ card, participant }: { card: RetroCard; participant?: Parti
       <p className="whitespace-pre-wrap text-[11px] font-semibold leading-snug text-slate-800">{card.content}</p>
       <div className="mt-1 flex items-center justify-between gap-1">
         <div className="flex min-w-0 items-center gap-1 text-[9px] font-bold text-slate-400">
-          <span
-            className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[8px] text-white"
-            style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
-          >
-            {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
-          </span>
+          <PersonAvatar name={participant?.name ?? "?"} color={participant?.avatar_color ?? "#94a3b8"} size="2xs" />
           <span className="truncate">{participant?.name ?? "Unknown"}</span>
         </div>
         <span className="shrink-0 rounded bg-[#f4eef6]/90 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-[#8b6689]">
@@ -590,12 +586,7 @@ function CardDragOverlay({
           <HiddenReflectionMeta />
         ) : (
           <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-            <span
-              className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
-              style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
-            >
-              {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
-            </span>
+            <PersonAvatar name={participant?.name ?? "?"} color={participant?.avatar_color ?? "#94a3b8"} size="xs" />
             Floating
           </div>
         )}

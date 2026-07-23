@@ -3,6 +3,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, GripVertical, Pencil, Plus, Ungroup } from "lucide-react";
 import { GroupInteractionBar } from "@/components/retro/GroupInteractionBar";
 import { HiddenReflectionMeta, HiddenReflectionSkeleton, shouldHideReflectionContent } from "@/components/retro/GhostReflection";
+import { PersonAvatar } from "@/components/retro/PersonAvatar";
 import type { CardGroup as CardGroupType, MeetingPhase, Participant, Reaction, RetroCard, RetroColumn, Vote } from "@/lib/retro/types";
 import { cn } from "@/lib/utils";
 
@@ -241,12 +242,7 @@ function GroupedCard({
           <HiddenReflectionMeta />
         ) : (
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-            <span
-              className="grid h-5 w-5 place-items-center rounded-full text-[10px] text-white"
-              style={{ backgroundColor: participant?.avatar_color ?? "#94a3b8" }}
-            >
-              {(participant?.name ?? "?").slice(0, 1).toUpperCase()}
-            </span>
+            <PersonAvatar name={participant?.name ?? "?"} color={participant?.avatar_color ?? "#94a3b8"} size="xs" />
             <span className="text-slate-500">{participant?.name ?? "Unknown"}</span>
             {card.origin_column_id ? (
               <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-400">

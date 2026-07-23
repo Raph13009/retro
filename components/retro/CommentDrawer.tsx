@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { X } from "lucide-react";
+import { PersonAvatar } from "@/components/retro/PersonAvatar";
 import type { CardComment, Participant, RetroCard } from "@/lib/retro/types";
 
 type CommentDrawerProps = {
@@ -66,12 +67,7 @@ export function CommentDrawer({ card, comments, participants, onClose, onAddComm
               return (
                 <div key={comment.id} className="liquid-surface rounded-2xl p-4">
                   <div className="mb-2 flex items-center gap-2 text-xs text-slate-400">
-                    <span
-                      className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-semibold text-white"
-                      style={{ backgroundColor: author?.avatar_color ?? "#71717a" }}
-                    >
-                      {(author?.name ?? "?").slice(0, 1).toUpperCase()}
-                    </span>
+                    <PersonAvatar name={author?.name ?? "?"} color={author?.avatar_color ?? "#71717a"} size="xs" />
                     <span>{author?.name ?? "Unknown"}</span>
                   </div>
                   <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{comment.content}</p>

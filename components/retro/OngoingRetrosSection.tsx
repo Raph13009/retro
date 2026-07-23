@@ -8,6 +8,7 @@ import { normalizePhase, phaseLabel } from "@/lib/retro/types";
 import { getRemainingSeconds } from "@/lib/retro/timer";
 import { hasSupabaseEnv, supabase } from "@/lib/supabase/client";
 import { OngoingRetrosGridSkeleton } from "@/components/retro/RetroSkeletons";
+import { PersonAvatar } from "@/components/retro/PersonAvatar";
 import { cn, formatTime } from "@/lib/utils";
 
 type DiscoverableRoom = Room & {
@@ -239,15 +240,16 @@ function ParticipantAvatarsMini({ participants }: { participants: Participant[] 
       {visibleParticipants.map((participant, index) => (
         <span
           key={participant.id}
-          className="grid h-8 w-8 place-items-center rounded-full border-2 border-white/70 text-xs font-extrabold text-white shadow-sm"
-          style={{
-            backgroundColor: participant.avatar_color,
-            marginLeft: index === 0 ? 0 : -8,
-            zIndex: visibleParticipants.length - index
-          }}
-          title={participant.name}
+          className="relative inline-flex"
+          style={{ marginLeft: index === 0 ? 0 : -8, zIndex: visibleParticipants.length - index }}
         >
-          {participant.name.slice(0, 1).toUpperCase()}
+          <PersonAvatar
+            name={participant.name}
+            color={participant.avatar_color}
+            size="sm"
+            className="border-2 border-white/70 shadow-sm"
+            title={participant.name}
+          />
         </span>
       ))}
       {extraCount > 0 ? (
