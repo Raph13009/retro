@@ -124,7 +124,7 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [selectedCard, setSelectedCard] = useState<RetroCard | null>(null);
   const [joinName, setJoinName] = useState("");
-  const [teammateMode, setTeammateMode] = useState(false);
+  const [teammateMode, setTeammateMode] = useState(true);
   const [rosterUnlocked, setRosterUnlocked] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<TeamGuest | null>(null);
   const [selectingGuestName, setSelectingGuestName] = useState<string | null>(null);
@@ -2605,30 +2605,17 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
               : "Pick a name or pseudonym. It is stored locally on this device and used for cards, votes, and comments."}
           </p>
 
-          {!teammateMode ? (
+          {teammateMode ? (
+            <GuestPickerUnlock onUnlocked={() => setRosterUnlocked(true)} onCancel={closeTeammateMode} />
+          ) : (
             <>
-              <button
-                type="button"
-                onClick={openTeammatePassword}
-                className="mt-5 flex w-full items-center justify-between gap-3 rounded-[1.35rem] border border-[#ded8e8] bg-white px-4 py-3.5 text-left transition hover:border-[#8c83ad] hover:bg-[#f7f5fb]"
-              >
-                <span>
-                  <span className="block text-sm font-extrabold text-slate-950">Pick a teammate</span>
-                  <span className="mt-0.5 block text-xs font-medium text-slate-500">
-                    Choose from the team roster with avatars
-                  </span>
-                </span>
-                <span className="rounded-full bg-[#ebe8f4] px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#6d668f]">
-                  Roster
-                </span>
-              </button>
-
-              <label className="mt-6 block">
+              <label className="mt-5 block">
                 <span className="mb-2 block text-sm font-medium text-slate-600">Your name</span>
                 <input
                   value={joinName}
                   onChange={(event) => setJoinName(event.target.value)}
                   placeholder="Alex"
+                  autoFocus
                   className="dark-field w-full rounded-2xl px-4 py-3 outline-none focus:border-[#8c83ad]"
                 />
               </label>
@@ -2643,9 +2630,23 @@ export function RetroApp({ roomSlug }: RetroAppProps) {
                 {isJoining ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {claimingFacilitator ? "Enter as Facilitator" : "Join room"}
               </button>
+
+              <button
+                type="button"
+                onClick={openTeammatePassword}
+                className="mt-4 flex w-full items-center justify-between gap-3 rounded-[1.35rem] border border-[#ded8e8] bg-white px-4 py-3.5 text-left transition hover:border-[#8c83ad] hover:bg-[#f7f5fb]"
+              >
+                <span>
+                  <span className="block text-sm font-extrabold text-slate-950">Pick a teammate</span>
+                  <span className="mt-0.5 block text-xs font-medium text-slate-500">
+                    Choose from the team roster with avatars
+                  </span>
+                </span>
+                <span className="rounded-full bg-[#ebe8f4] px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#6d668f]">
+                  Roster
+                </span>
+              </button>
             </>
-          ) : (
-            <GuestPickerUnlock onUnlocked={() => setRosterUnlocked(true)} onCancel={closeTeammateMode} />
           )}
 
           <div className="mt-5 text-center">

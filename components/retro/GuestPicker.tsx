@@ -70,22 +70,20 @@ export function GuestPickerUnlock({
         className="dark-field mt-3 w-full rounded-2xl px-4 py-3 outline-none focus:border-[#8c83ad]"
       />
       {error ? <p className="mt-2 text-sm text-[#b55252]">{error}</p> : null}
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex flex-1 items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-extrabold text-slate-600 ring-1 ring-[#ded8e8]"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={tryUnlock}
-          className="primary-button inline-flex flex-1 items-center justify-center rounded-2xl px-5 py-3 font-medium"
-        >
-          Unlock roster
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={tryUnlock}
+        className="primary-button mt-3 inline-flex w-full items-center justify-center rounded-2xl px-5 py-3 font-medium"
+      >
+        Unlock roster
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="mt-3 w-full text-center text-sm font-semibold text-[#6d668f] underline decoration-[#c9c2d7] underline-offset-2 hover:text-[#4f4974]"
+      >
+        Type your name instead
+      </button>
     </div>
   );
 }
