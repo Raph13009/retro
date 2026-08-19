@@ -1,181 +1,95 @@
-# Deployment — paraboll.online
+# Deployment — Product Retro Tool
 
-This guide covers production hosting on **Vercel**, DNS via **Cloudflare**, and HTTPS. It does not change application code.
+Standard deployment uses **Vercel** (free tier) connected to a **GitLab** repository.
+No custom domain, DNS, or Cloudflare configuration is required.
 
-## Hosting
+---
+
+## Platform
 
 | Item | Value |
-|------|--------|
+|---|---|
 | Platform | [Vercel](https://vercel.com) |
-| Framework | Next.js (see `vercel.json`) |
-| Repository | https://github.com/Raph13009/retro |
-| Production URL | https://paraboll.online |
+| Framework | Next.js (auto-detected; see `vercel.json`) |
+| Repository | Lemonway / Product Team / Product Retro Tool (GitLab) |
+| Database | Supabase (see `supabase/schema.sql`) |
 
-## Required environment variables (Vercel)
+---
 
-Set these in **Project → Settings → Environment Variables** (Production):
+## Required environment variables
 
-```bash
+Set these in **Vercel → Project → Settings → Environment Variables**:
+
+```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-NEXT_PUBLIC_SITE_URL=https://paraboll.online
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
 ```
 
-`NEXT_PUBLIC_SITE_URL` drives canonical URLs, sitemap, and Open Graph metadata (`lib/brand.ts`).
+These are the only two required variables. The deployment URL is resolved automatically from Vercel's built-in `VERCEL_URL` — no additional configuration needed.
+
+---
+
+## Deployment steps
+
+1. **Create a Vercel account** at [vercel.com](https://vercel.com) (free)
+2. **Add New Project** → choose **Import Git Repository** → connect GitLab
+3. Select the **Product Retro Tool** repository
+4. Vercel detects Next.js automatically — leave framework settings unchanged
+5. Under **Environment Variables**, add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+6. Click **Deploy**
+7. Use the generated `*.vercel.app` URL — share it with the team
 
 Redeploy after changing environment variables.
 
 ---
 
-## Current DNS expectations
+## Cron job (keep-alive)
 
-Vercel assigns a **project-specific** CNAME for `www`. Confirm yours in **Vercel → Project → Settings → Domains**.
+`vercel.json` configures a lightweight cron that pings `/api/keep-alive` every five days.
+This writes a row to the `keep_alive` table to prevent Supabase Free projects from being paused due to inactivity.
 
-Example (verify in dashboard):
-
-| Host | Type | Value |
-|------|------|--------|
-| `www` | CNAME | `eac19711751eb66b.vercel-dns-017.com` |
-| `@` (apex) | A | `76.76.21.21` |
-
-Do **not** point the apex to registrar parking IPs (e.g. old `216.198.79.1`).
+**This cron is optional.** If the Supabase project is paused, resume it manually from the [Supabase Dashboard](https://supabase.com/dashboard) — no data is lost.
 
 ---
 
-## Cloudflare setup
-
-### 1. Add the site
-
-1. Create a [Cloudflare](https://cloudflare.com) account (Free plan is fine).
-2. **Add a site** → `paraboll.online`.
-3. Import or review DNS records; remove parking / stale records.
-
-### 2. DNS records
-
-Use **DNS only** (grey cloud) for Vercel-hosted records. Vercel already provides SSL and CDN; orange-cloud proxy can cause double-proxy and certificate issues on first setup.
-
-| Type | Name | Content | Proxy |
-|------|------|---------|--------|
-| A | `@` | `76.76.21.21` | DNS only |
-| CNAME | `www` | *(your Vercel CNAME from dashboard)* | DNS only |
-
-Remove:
-
-- Old apex `A` to parking IPs
-- Duplicate or conflicting `www` records
-
-Optional (if Vercel shows a verification record):
-
-| Type | Name | Content |
-|------|------|---------|
-| TXT | `_vercel` | *(value from Vercel)* |
-
-### 3. SSL/TLS (Cloudflare)
-
-While records are **DNS only**:
-
-- **SSL/TLS encryption mode**: Full (default is fine).
-- Let **Vercel** terminate HTTPS for visitors.
-
-If you later enable **proxied** (orange cloud) records:
-
-- Set encryption to **Full (strict)**.
-- Read [Vercel + Cloudflare](https://vercel.com/guides/using-cloudflare-with-vercel) before enabling proxy.
-
-Avoid enabling **Always Use HTTPS** on Cloudflare **and** conflicting redirects on Vercel—pick one layer for HTTP→HTTPS.
-
-### 4. Nameservers
-
-Cloudflare will provide two nameservers, e.g.:
-
-```
-ada.ns.cloudflare.com
-bob.ns.cloudflare.com
-```
-
-At your **domain registrar** (where you bought `paraboll.online`), replace existing nameservers (e.g. `*.dns-parking.com`) with Cloudflare’s.
-
-Propagation: often 15 minutes–48 hours.
-
----
-
-## Vercel domain configuration
-
-1. Open the project on Vercel → **Settings → Domains**.
-2. Add:
-   - `paraboll.online`
-   - `www.paraboll.online`
-3. Wait until both show **Valid**.
-4. Choose a **primary** domain and redirect the other:
-   - Recommended: primary `paraboll.online`, redirect `www` → apex (or the reverse—stay consistent everywhere).
-
----
-
-## Verification checklist
-
-After DNS propagates:
-
-```bash
-dig paraboll.online A +short
-# Expected: 76.76.21.21
-
-dig www.paraboll.online CNAME +short
-# Expected: your-project.vercel-dns-017.com (or similar)
-
-curl -sI https://paraboll.online | head -5
-# Expected: HTTP/2 200 or 307/308 redirect, valid TLS
-```
-
-Online tools:
-
-- https://dnschecker.org — global DNS propagation
-- https://www.ssllabs.com/ssltest/ — certificate chain quality
-
----
-
-## Corporate networks (Fortinet / “Newly Registered Domain”)
-
-Symptoms: site works on mobile data but is blocked on company Wi‑Fi.
-
-Common causes:
-
-1. **Misconfigured DNS** (apex not pointing to Vercel) — fix with the records above.
-2. **Newly Registered Domain (NRD)** filters — new domains may be categorized cautiously for days or weeks; a clean DNS + valid public HTTPS helps reputation over time.
-3. **SSL inspection** on corporate networks — users may see a Fortinet-issued certificate; that is local policy, not a public misconfiguration.
-
-Cloudflare does **not** bypass corporate security policies. For internal use, request a category review or allowlist from IT using evidence of a valid site and business purpose.
-
----
-
-## App routes (reference)
+## App routes reference
 
 | Path | Purpose |
-|------|---------|
+|---|---|
 | `/` | Marketing home |
 | `/retro` | Create a retrospective room |
 | `/room/[roomId]` | Live board |
-| `/ongoing` | Redirects to `/` (`next.config.ts`) |
+| `/ongoing` | Redirects to `/` |
 
 ---
 
-## Regenerating brand assets (optional)
+<details>
+<summary>Legacy: custom domain + Cloudflare (optional)</summary>
 
-If logo files under `public/brand/` change:
+This section describes the original `paraboll.online` production setup. **Not required for standard deployment.**
 
-```bash
-npm run brand:assets
-```
+### DNS records (Cloudflare, DNS-only mode)
 
-Requires Python 3 and Pillow (`pip3 install Pillow`).
+| Type | Name | Content |
+|---|---|---|
+| A | `@` | `76.76.21.21` |
+| CNAME | `www` | *(your Vercel CNAME from Project → Settings → Domains)* |
 
----
+Use **DNS only** (grey cloud). Vercel provides SSL — orange-cloud proxy can cause double-proxy issues.
 
-## Quick troubleshooting
+### Vercel domain configuration
+
+1. **Project → Settings → Domains** → add `yourdomain.com` and `www.yourdomain.com`
+2. Wait until both show **Valid**
+3. Set `NEXT_PUBLIC_SITE_URL=https://yourdomain.com` in Vercel environment variables
+
+### Troubleshooting
 
 | Problem | Check |
-|---------|--------|
+|---|---|
 | Apex does not load | Apex `A` → `76.76.21.21`, domain Valid in Vercel |
-| `www` works, apex does not | Apex record missing or still on parking IP |
-| Certificate warning | Domain not Valid in Vercel; wait for DNS propagation |
-| Wrong OG/canonical URL | `NEXT_PUBLIC_SITE_URL` in Vercel Production env |
-| Redirect loop | Cloudflare “Always HTTPS” + Vercel redirect both enabled |
+| Certificate warning | Domain not yet Valid in Vercel; wait for DNS propagation |
+| Wrong OG / canonical URL | `NEXT_PUBLIC_SITE_URL` set correctly in Vercel env |
+| Redirect loop | Cloudflare "Always HTTPS" + Vercel redirect both enabled — disable one |
+
+</details>
